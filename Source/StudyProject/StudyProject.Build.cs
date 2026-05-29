@@ -18,13 +18,39 @@ public class StudyProject : ModuleRules
 			"StateTreeModule",
 			"GameplayStateTreeModule",
 			"UMG",
-			"Slate"
+			"Slate",
+			"SlateCore",
+			"NetCore",
+			"CommonUI",
+			"CommonInput"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] { });
 
+		if (Target.bBuildEditor)
+		{
+			PublicDependencyModuleNames.AddRange(new string[] {
+				"UnrealEd",
+				"AssetRegistry"
+			});
+		}
+
 		PublicIncludePaths.AddRange(new string[] {
 			"StudyProject",
+			"StudyProject/Data",
+			"StudyProject/Subsystem",
+			"StudyProject/Character",
+			"StudyProject/Inventory",
+			"StudyProject/Item",
+			"StudyProject/UI",
+			"StudyProject/UI/Common",
+			"StudyProject/UI/Inventory",
+			"StudyProject/UI/Shop",
+			"StudyProject/UI/Enhance",
+			"StudyProject/UI/Trade",
+			"StudyProject/UI/HUD",
+			"StudyProject/UI/Menu",
+			"StudyProject/CustomizingMotion",
 			"StudyProject/Variant_Platforming",
 			"StudyProject/Variant_Platforming/Animation",
 			"StudyProject/Variant_Combat",
@@ -37,7 +63,8 @@ public class StudyProject : ModuleRules
 			"StudyProject/Variant_SideScrolling/AI",
 			"StudyProject/Variant_SideScrolling/Gameplay",
 			"StudyProject/Variant_SideScrolling/Interfaces",
-			"StudyProject/Variant_SideScrolling/UI"
+			"StudyProject/Variant_SideScrolling/UI",
+			"StudyProject/Editor"
 		});
 
 		// Uncomment if you are using Slate UI
