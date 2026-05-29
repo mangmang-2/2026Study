@@ -20,7 +20,11 @@ void UInventoryGridWidget::InitGrid(int32 SlotCount)
         SlotW->SlotIndex   = i;
         SlotW->SlotContext = ESlotContext::Inventory;
 
-        GridPanel->AddChildToUniformGrid(SlotW, i / ColumnCount, i % ColumnCount);
+        if (UUniformGridSlot* GridSlot = GridPanel->AddChildToUniformGrid(SlotW, i / ColumnCount, i % ColumnCount))
+        {
+            GridSlot->SetHorizontalAlignment(HAlign_Fill);
+            GridSlot->SetVerticalAlignment(VAlign_Fill);
+        }
         SlotWidgets.Add(SlotW);
     }
 }
