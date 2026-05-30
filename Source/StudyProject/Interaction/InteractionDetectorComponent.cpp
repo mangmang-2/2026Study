@@ -5,7 +5,7 @@
 UInteractionDetectorComponent::UInteractionDetectorComponent()
 {
     PrimaryComponentTick.bCanEverTick = true;
-    SphereRadius = 250.f;  // SetSphereRadius()는 UpdateBodySetup() → NewObject 호출 → 생성자에서 fatal
+    SphereRadius = 75.f;  // SetSphereRadius()는 UpdateBodySetup() → NewObject 호출 → 생성자에서 fatal
     SetCollisionProfileName(TEXT("OverlapAllDynamic"));
 }
 
@@ -20,10 +20,6 @@ void UInteractionDetectorComponent::TickComponent(float DeltaTime, ELevelTick Ti
     FActorComponentTickFunction* ThisTickFunction)
 {
     Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-
-    // 감지 범위 시각화
-    DrawDebugSphere(GetWorld(), GetComponentLocation(), SphereRadius, 16,
-        Candidates.Num() > 0 ? FColor::Green : FColor::Red, false, -1.f, 0, 1.f);
 
     if (Candidates.Num() > 0)
     {

@@ -32,6 +32,9 @@ public:
     bool HasShop() const { return bHasShop; }
 
     UFUNCTION(BlueprintPure, Category = "AI")
+    bool HasEnhance() const { return bHasEnhance; }
+
+    UFUNCTION(BlueprintPure, Category = "AI")
     int32 GetShopID() const { return ShopID; }
 
     UFUNCTION(BlueprintPure, Category = "AI")
@@ -44,19 +47,22 @@ public:
 
 protected:
     // ── 역할 설정 (DataTable 기반 → 여기선 BP에서 설정) ─────────────
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "AI")
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "AI")
     bool bHostile = true;
 
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "AI")
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "AI")
     int32 MonsterID = -1;           // DT_MonsterData / DT_DropTable 키
 
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "AI")
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "AI")
     bool bHasShop = false;
 
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "AI")
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "AI")
+    bool bHasEnhance = false;       // 강화 NPC 여부 (상점과 분기)
+
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "AI")
     int32 ShopID = -1;              // DT_ShopInventory 키
 
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "AI")
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "AI")
     int32 DialogueID = -1;          // DT_DialogueData 키
 
     // ── 전투 스탯 ────────────────────────────────────────────────────

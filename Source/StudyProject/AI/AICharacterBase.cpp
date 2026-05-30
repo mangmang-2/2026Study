@@ -2,6 +2,7 @@
 #include "Net/UnrealNetwork.h"
 #include "Subsystem/ItemSubsystem.h"
 #include "Interaction/InteractionPromptComponent.h"
+#include "Character/PlayerCharacter.h"
 
 AAICharacterBase::AAICharacterBase()
 {
@@ -56,6 +57,7 @@ void AAICharacterBase::HandleDeath(AActor* Killer)
 FText AAICharacterBase::GetInteractionPrompt_Implementation() const
 {
     if (bHasShop)        return FText::FromString(TEXT("F: 상점"));
+    if (bHasEnhance)     return FText::FromString(TEXT("F: 강화"));
     if (DialogueID >= 0) return FText::FromString(TEXT("F: 대화"));
     return FText::FromString(TEXT("F: 상호작용"));
 }
@@ -68,7 +70,25 @@ bool AAICharacterBase::CanInteract_Implementation(AActor* Interactor) const
 void AAICharacterBase::Interact_Implementation(AActor* Interactor)
 {
     UE_LOG(LogTemp, Warning, TEXT("[Interaction] Interact_Implementation called on %s"), *GetName());
-    OnInteract(Interactor);
+
+    // NPC별 분기 — 상점 / 강화 / 대화 화면 열기
+    if (APlayerCharacter* Player = Cast<APlayerCharacter>(Interactor))
+    {
+        if (bHasShop)
+        {
+            Player->OpenShopScreen(ShopID);
+        }
+        else if (bHasEnhance)
+        {
+            Player->OpenEnhanceScreen();
+        }
+        else if (DialogueID >= 0)
+        {
+            Player->StartDialogue(DialogueID, this);
+        }
+    }
+
+    OnInteract(Interactor);  // BP 추가 훅 유지
 }
 
 // ── 내부 ──────────────────────────────────────────────────────────────────────

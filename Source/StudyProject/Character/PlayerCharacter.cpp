@@ -11,11 +11,15 @@
 #include "Inventory/InventoryComponent.h"
 #include "UI/HUD/HUDWidget.h"
 #include "UI/Dialogue/DialogueWidget.h"
+#include "UI/Shop/ShopScreenWidget.h"
 #include "Blueprint/UserWidget.h"
+#include "Components/Button.h"
 #include "Kismet/GameplayStatics.h"
 #include "Interaction/InteractionDetectorComponent.h"
 #include "Interaction/InteractionPromptComponent.h"
 #include "Interaction/InteractableInterface.h"
+#include "UI/Common/InteractionPromptWidget.h"
+#include "Blueprint/WidgetLayoutLibrary.h"
 #include "Subsystem/ItemSubsystem.h"
 #include "Engine/GameInstance.h"
 
@@ -52,6 +56,16 @@ APlayerCharacter::APlayerCharacter()
     static ConstructorHelpers::FClassFinder<UUserWidget> EnhanceWBPFinder(
         TEXT("/Game/UI/Enhance/WBP_EnhanceScreenWidget"));
     if (EnhanceWBPFinder.Succeeded()) EnhanceScreenWidgetClass = EnhanceWBPFinder.Class;
+
+    static ConstructorHelpers::FClassFinder<UUserWidget> ShopWBPFinder(
+        TEXT("/Game/UI/Shop/WBP_ShopScreenWidget"));
+    if (ShopWBPFinder.Succeeded()) ShopScreenWidgetClass = ShopWBPFinder.Class;
+
+    static ConstructorHelpers::FClassFinder<UUserWidget> PromptWBPFinder(
+        TEXT("/Game/UI/Common/WBP_InteractionPrompt"));
+    if (PromptWBPFinder.Succeeded()) InteractionPromptClass = PromptWBPFinder.Class;
+
+    PrimaryActorTick.bCanEverTick = true;   // 프롬프트 위치 추적용
 }
 
 void APlayerCharacter::BeginPlay()
@@ -101,6 +115,12 @@ void APlayerCharacter::NotifyControllerChanged()
                 Subsystem->AddMappingContext(DefaultMappingContext, 0);
         }
     }
+}
+
+void APlayerCharacter::Tick(float DeltaSeconds)
+{
+    Super::Tick(DeltaSeconds);
+    UpdateInteractionPrompt();
 }
 
 void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -198,28 +218,56 @@ void APlayerCharacter::HandleUsePotion()
 
 void APlayerCharacter::OnFocusChanged(AActor* NewFocus)
 {
-    // 이전 포커스 프롬프트 숨기기
-    if (LastFocusedActor)
-    {
-        if (UInteractionPromptComponent* Prompt = LastFocusedActor->FindComponentByClass<UInteractionPromptComponent>())
-            Prompt->HidePrompt();
-    }
-
     LastFocusedActor = NewFocus;
 
-    if (!NewFocus) return;
-
-    UInteractionPromptComponent* Prompt = NewFocus->FindComponentByClass<UInteractionPromptComponent>();
-    UE_LOG(LogTemp, Warning, TEXT("[Prompt] OnFocusChanged: %s | PromptComp=%s"),
-        *NewFocus->GetName(), Prompt ? TEXT("FOUND") : TEXT("NULL"));
-    if (Prompt)
+    APlayerController* PC = Cast<APlayerController>(GetController());
+    if (NewFocus == nullptr || PC == nullptr)
     {
-        if (NewFocus->Implements<UInteractable>())
+        if (InteractionPromptW) InteractionPromptW->SetVisibility(ESlateVisibility::Collapsed);
+        return;
+    }
+
+    if (NewFocus->Implements<UInteractable>())
+    {
+        const FText PromptText = IInteractable::Execute_GetInteractionPrompt(NewFocus);
+
+        if (InteractionPromptW == nullptr && InteractionPromptClass)
         {
-            FText PromptText = IInteractable::Execute_GetInteractionPrompt(NewFocus);
-            UE_LOG(LogTemp, Warning, TEXT("[Prompt] ShowPrompt: %s"), *PromptText.ToString());
-            Prompt->ShowPrompt(PromptText);
+            InteractionPromptW = CreateWidget<UUserWidget>(PC, InteractionPromptClass);
+            if (InteractionPromptW) InteractionPromptW->AddToViewport(50);
         }
+        if (UInteractionPromptWidget* W = Cast<UInteractionPromptWidget>(InteractionPromptW))
+        {
+            W->SetPromptText(PromptText);
+        }
+        if (InteractionPromptW)
+        {
+            InteractionPromptW->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+        }
+        UpdateInteractionPrompt();
+    }
+    else if (InteractionPromptW)
+    {
+        InteractionPromptW->SetVisibility(ESlateVisibility::Collapsed);
+    }
+}
+
+void APlayerCharacter::UpdateInteractionPrompt()
+{
+    if (InteractionPromptW == nullptr || LastFocusedActor == nullptr) return;
+    if (InteractionPromptW->GetVisibility() == ESlateVisibility::Collapsed) return;
+
+    APlayerController* PC = Cast<APlayerController>(GetController());
+    if (PC == nullptr) return;
+
+    const FVector WorldPos = LastFocusedActor->GetActorLocation() + FVector(0.f, 0.f, 90.f);
+    FVector2D Screen;
+    if (PC->ProjectWorldLocationToScreen(WorldPos, Screen, false))
+    {
+        // PromptText가 위젯 내부에서 중앙 정렬이라 투영 지점에 그대로 배치 (오프셋 불필요)
+        const float DPI = UWidgetLayoutLibrary::GetViewportScale(this);
+        const FVector2D Logical = (DPI > 0.f) ? (Screen / DPI) : Screen;
+        InteractionPromptW->SetPositionInViewport(Logical, false);
     }
 }
 
@@ -286,6 +334,8 @@ void APlayerCharacter::OpenInventory()
     if (InventoryScreenWidget)
     {
         InventoryScreenWidget->AddToViewport();
+        if (UButton* CloseB = Cast<UButton>(InventoryScreenWidget->GetWidgetFromName(TEXT("CloseBtn"))))
+            CloseB->OnClicked.AddUniqueDynamic(this, &APlayerCharacter::CloseInventory);
         bInventoryOpen = true;
         SwitchToUIInput();
     }
@@ -318,6 +368,8 @@ void APlayerCharacter::OpenEnhance()
     if (EnhanceScreenWidget)
     {
         EnhanceScreenWidget->AddToViewport();
+        if (UButton* CloseB = Cast<UButton>(EnhanceScreenWidget->GetWidgetFromName(TEXT("CloseBtn"))))
+            CloseB->OnClicked.AddUniqueDynamic(this, &APlayerCharacter::CloseEnhance);
         bEnhanceOpen = true;
         SwitchToUIInput();
     }
@@ -331,7 +383,55 @@ void APlayerCharacter::CloseEnhance()
         EnhanceScreenWidget->RemoveFromParent();
     }
     bEnhanceOpen = false;
-    if (bInventoryOpen == false && bPauseMenuOpen == false)
+    if (bInventoryOpen == false && bPauseMenuOpen == false && bShopOpen == false)
+    {
+        SwitchToGameInput();
+    }
+}
+
+void APlayerCharacter::OpenEnhanceScreen()
+{
+    OpenEnhance();
+}
+
+void APlayerCharacter::OpenShopScreen(int32 ShopID)
+{
+    OpenShop(ShopID);
+}
+
+void APlayerCharacter::OpenShop(int32 ShopID)
+{
+    if (bShopOpen) return;
+    APlayerController* PC = Cast<APlayerController>(GetController());
+    if (PC == nullptr) return;
+
+    if (ShopScreenWidget == nullptr && ShopScreenWidgetClass)
+    {
+        ShopScreenWidget = CreateWidget<UUserWidget>(PC, ShopScreenWidgetClass);
+    }
+    if (ShopScreenWidget)
+    {
+        ShopScreenWidget->AddToViewport();
+        if (UShopScreenWidget* Shop = Cast<UShopScreenWidget>(ShopScreenWidget))
+        {
+            Shop->SetShopID(ShopID);
+        }
+        if (UButton* CloseB = Cast<UButton>(ShopScreenWidget->GetWidgetFromName(TEXT("CloseBtn"))))
+            CloseB->OnClicked.AddUniqueDynamic(this, &APlayerCharacter::CloseShop);
+        bShopOpen = true;
+        SwitchToUIInput();
+    }
+}
+
+void APlayerCharacter::CloseShop()
+{
+    if (bShopOpen == false) return;
+    if (ShopScreenWidget)
+    {
+        ShopScreenWidget->RemoveFromParent();
+    }
+    bShopOpen = false;
+    if (bInventoryOpen == false && bPauseMenuOpen == false && bEnhanceOpen == false)
     {
         SwitchToGameInput();
     }
@@ -379,13 +479,11 @@ void APlayerCharacter::SwitchToUIInput()
     PC->SetShowMouseCursor(true);
     PC->SetInputMode(FInputModeGameAndUI());
 
+    // DefaultMappingContext는 유지 — I/F 등 토글 키가 UI 열린 상태에서도 살아있어야
+    // 닫고 다시 열 수 있음 (제거하면 닫은 뒤 키가 죽어 재오픈 불가)
     if (UEnhancedInputLocalPlayerSubsystem* Subsystem =
         ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PC->GetLocalPlayer()))
     {
-        if (DefaultMappingContext)
-        {
-            Subsystem->RemoveMappingContext(DefaultMappingContext);
-        }
         if (UIMappingContext)
         {
             Subsystem->AddMappingContext(UIMappingContext, 1);

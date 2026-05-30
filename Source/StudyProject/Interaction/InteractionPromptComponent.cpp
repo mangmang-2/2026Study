@@ -1,48 +1,58 @@
 #include "InteractionPromptComponent.h"
-#include "Components/WidgetComponent.h"
 #include "UI/Common/InteractionPromptWidget.h"
+#include "UObject/ConstructorHelpers.h"
 
 UInteractionPromptComponent::UInteractionPromptComponent()
 {
     PrimaryComponentTick.bCanEverTick = false;
 
-    WidgetComp = CreateDefaultSubobject<UWidgetComponent>(TEXT("PromptWidgetComp"));
-    WidgetComp->SetupAttachment(this);
-    WidgetComp->SetWidgetSpace(EWidgetSpace::Screen);
-    WidgetComp->SetDrawSize(FVector2D(200.f, 60.f));
-    WidgetComp->SetRelativeLocation(FVector(0.f, 0.f, 100.f));
-    WidgetComp->SetVisibility(false);
-    WidgetComp->PrimaryComponentTick.bCanEverTick = false;
+    SetWidgetSpace(EWidgetSpace::Screen);
+    SetDrawSize(FVector2D(200.f, 60.f));
+    SetRelativeLocation(FVector(0.f, 0.f, 100.f));
+    SetVisibility(false);
+
+    // 위젯 클래스를 생성자(CDO)에서 지정 — 런타임 SetWidgetClass보다 안정적으로 초기화됨
+    static ConstructorHelpers::FClassFinder<UUserWidget> PromptWBP(
+        TEXT("/Game/UI/Common/WBP_InteractionPrompt"));
+    if (PromptWBP.Succeeded())
+    {
+        SetWidgetClass(PromptWBP.Class);
+    }
 }
 
 void UInteractionPromptComponent::BeginPlay()
 {
     Super::BeginPlay();
 
-    if (WidgetComp->GetWidgetClass() == nullptr)
+    if (GetWidgetClass() == nullptr)
     {
         UClass* WClass = LoadClass<UUserWidget>(nullptr,
             TEXT("/Game/UI/Common/WBP_InteractionPrompt.WBP_InteractionPrompt_C"));
         if (WClass)
         {
-            WidgetComp->SetWidgetClass(WClass);
+            SetWidgetClass(WClass);
         }
     }
-    WidgetComp->InitWidget();
+    InitWidget();
 }
 
 void UInteractionPromptComponent::ShowPrompt(const FText& PromptText)
 {
-    if (WidgetComp->GetUserWidgetObject() == nullptr)
+    if (GetUserWidgetObject() == nullptr)
     {
-        WidgetComp->InitWidget();
+        InitWidget();
     }
 
-    WidgetComp->SetVisibility(true);
+    SetVisibility(true);
 
-    UInteractionPromptWidget* W = Cast<UInteractionPromptWidget>(WidgetComp->GetUserWidgetObject());
-    UE_LOG(LogTemp, Warning, TEXT("[Prompt] Widget=%s"), W ? TEXT("OK") : TEXT("NULL"));
-    if (W)
+    UUserWidget* WObj = GetUserWidgetObject();
+    UE_LOG(LogTemp, Warning, TEXT("[Prompt] ShowPrompt: widgetObj=%s, space=%d, compVisible=%d, class=%s"),
+        WObj ? TEXT("OK") : TEXT("NULL"),
+        (int32)GetWidgetSpace(),
+        IsVisible() ? 1 : 0,
+        GetWidgetClass() ? *GetWidgetClass()->GetName() : TEXT("NULL"));
+
+    if (UInteractionPromptWidget* W = Cast<UInteractionPromptWidget>(WObj))
     {
         W->SetPromptText(PromptText);
         W->Show();
@@ -51,8 +61,9 @@ void UInteractionPromptComponent::ShowPrompt(const FText& PromptText)
 
 void UInteractionPromptComponent::HidePrompt()
 {
-    if (UInteractionPromptWidget* W = Cast<UInteractionPromptWidget>(WidgetComp->GetUserWidgetObject()))
+    if (UInteractionPromptWidget* W = Cast<UInteractionPromptWidget>(GetUserWidgetObject()))
+    {
         W->Hide();
-
-    WidgetComp->SetVisibility(false);
+    }
+    SetVisibility(false);
 }

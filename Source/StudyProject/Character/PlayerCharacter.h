@@ -31,6 +31,10 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Dialogue")
     void StartDialogue(int32 InDialogueID, AActor* Interactor);
 
+    // NPC 상호작용(F)에서 호출 — 서비스 화면 열기
+    void OpenShopScreen(int32 ShopID);
+    void OpenEnhanceScreen();
+
     // 콘솔 커맨드: DebugDropItem <ItemID> <Quantity>
     UFUNCTION(Exec)
     void DebugDropItem(int32 ItemID, int32 Quantity = 1);
@@ -113,6 +117,12 @@ protected:
     UPROPERTY(EditDefaultsOnly, Category = "UI")
     TSubclassOf<UUserWidget> EnhanceScreenWidgetClass;   // 임시 테스트용
 
+    UPROPERTY(EditDefaultsOnly, Category = "UI")
+    TSubclassOf<UUserWidget> ShopScreenWidgetClass;
+
+    UPROPERTY(EditDefaultsOnly, Category = "UI")
+    TSubclassOf<UUserWidget> InteractionPromptClass;   // 머리 위 F 프롬프트 (HUD-follow)
+
     // ── 컴포넌트 ─────────────────────────────────────────────────────
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
     TObjectPtr<UTradeComponent> TradeComp;
@@ -125,6 +135,7 @@ protected:
     bool bIsSprinting = false;
 
     virtual void BeginPlay() override;
+    virtual void Tick(float DeltaSeconds) override;
     virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
     virtual void NotifyControllerChanged() override;
 
@@ -144,11 +155,13 @@ private:
 
     // UI 열기/닫기
     void OpenInventory();
-    void CloseInventory();
+    UFUNCTION() void CloseInventory();
     void OpenPauseMenu();
     void ClosePauseMenu();
     void OpenEnhance();
-    void CloseEnhance();
+    UFUNCTION() void CloseEnhance();
+    void OpenShop(int32 ShopID);
+    UFUNCTION() void CloseShop();
     void SwitchToUIInput();
     void SwitchToGameInput();
 
@@ -166,9 +179,13 @@ private:
     UPROPERTY()
     TObjectPtr<UUserWidget> EnhanceScreenWidget   = nullptr;
 
+    UPROPERTY()
+    TObjectPtr<UUserWidget> ShopScreenWidget      = nullptr;
+
     bool bInventoryOpen  = false;
     bool bPauseMenuOpen  = false;
     bool bEnhanceOpen    = false;
+    bool bShopOpen       = false;
 
     UFUNCTION(Server, Reliable)
     void Server_DebugDropItem(int32 ItemID, int32 Quantity);
@@ -178,4 +195,10 @@ private:
 
     UFUNCTION()
     void OnFocusChanged(AActor* NewFocus);
+
+    // 머리 위 프롬프트 위젯 (뷰포트에 띄우고 NPC 위치를 매 프레임 추적)
+    UPROPERTY()
+    TObjectPtr<UUserWidget> InteractionPromptW = nullptr;
+
+    void UpdateInteractionPrompt();
 };

@@ -35,7 +35,8 @@ def _w(wbp_path, name):
 def compile_save(wbp_path):
     bp = unreal.EditorAssetLibrary.load_asset(wbp_path)
     unreal.BlueprintEditorLibrary.compile_blueprint(bp)
-    unreal.EditorAssetLibrary.save_asset(wbp_path)
+    # only_if_is_dirty=False → dirty 플래그와 무관하게 디스크에 강제 저장 (save_asset no-op 방지)
+    unreal.EditorAssetLibrary.save_asset(wbp_path, only_if_is_dirty=False)
 
 
 # ── 슬롯 레이아웃 (규칙 0: 실측/명시) ───────────────────────────
@@ -138,4 +139,36 @@ def build_split_screen(wbp_path, left, right, title=None, title_text="",
     set_canvas_slot(wbp_path, close_btn, (1, 0), (1, 0), (-44, 8, 40, 40), (1, 0), False, 2)
     if _w(wbp_path, close_text):
         set_text(wbp_path, close_text, "X", size=20, color=COL_TEXT, center=True)
+    compile_save(wbp_path)
+
+
+def fill_slot(wbp_path, name, margin=0, z=0):
+    """부모를 꽉 채우기(스트레치 앵커). margin은 안쪽 여백."""
+    m = margin
+    set_canvas_slot(wbp_path, name, (0, 0), (1, 1), (m, m, m, m), (0, 0), False, z)
+
+
+def stretch_slot(wbp_path, name, amin, amax, margins=(0, 0, 0, 0), z=0):
+    """임의 스트레치 앵커 영역에 배치. margins=(Left,Top,Right,Bottom) 여백."""
+    set_canvas_slot(wbp_path, name, amin, amax, margins, (0, 0), False, z)
+
+
+def build_canvas_split_screen(wbp_path, left, right, overlay=None, title=None, title_text="",
+                              close_btn=None, close_text=None, gold=None, gold_text="",
+                              top=70, bottom=50, side=40, gap=20):
+    """패널이 CanvasPanel 직접 자식인 좌우 분할 화면(상점 등). HBox 없는 경우용."""
+    if overlay:
+        fullscreen_overlay(wbp_path, overlay)
+    stretch_slot(wbp_path, left,  (0, 0), (0.5, 1), (side, top, gap, bottom), z=1)
+    stretch_slot(wbp_path, right, (0.5, 0), (1, 1), (gap, top, side, bottom), z=1)
+    if title:
+        set_canvas_slot(wbp_path, title, (0.5, 0), (0.5, 0), (0, 18, 500, 40), (0.5, 0), False, 2)
+        set_text(wbp_path, title, title_text, size=26, color=COL_TEXT, center=True)
+    if close_btn:
+        set_canvas_slot(wbp_path, close_btn, (1, 0), (1, 0), (-44, 8, 40, 40), (1, 0), False, 3)
+        if close_text and _w(wbp_path, close_text):
+            set_text(wbp_path, close_text, "X", size=20, color=COL_TEXT, center=True)
+    if gold:
+        set_canvas_slot(wbp_path, gold, (0, 1), (0, 1), (side, -34, 400, 28), (0, 1), False, 2)
+        set_text(wbp_path, gold, gold_text, size=16, color=COL_TEXT)
     compile_save(wbp_path)
