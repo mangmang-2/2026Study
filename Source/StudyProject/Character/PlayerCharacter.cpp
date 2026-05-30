@@ -5,6 +5,8 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputActionValue.h"
+#include "InputAction.h"
+#include "UObject/ConstructorHelpers.h"
 #include "Inventory/TradeComponent.h"
 #include "Inventory/InventoryComponent.h"
 #include "UI/HUD/HUDWidget.h"
@@ -41,6 +43,15 @@ APlayerCharacter::APlayerCharacter()
     // InteractionDetector — 범위 내 IInteractable 감지
     InteractionDetector = CreateDefaultSubobject<UInteractionDetectorComponent>(TEXT("InteractionDetector"));
     InteractionDetector->SetupAttachment(RootComponent);
+
+    // 임시 테스트용 강화 화면 단축키(K) 기본값 — 에디터에서 재지정 가능
+    static ConstructorHelpers::FObjectFinder<UInputAction> EnhanceIAFinder(
+        TEXT("/Game/Input/Actions/IA_Enhance.IA_Enhance"));
+    if (EnhanceIAFinder.Succeeded()) EnhanceAction = EnhanceIAFinder.Object;
+
+    static ConstructorHelpers::FClassFinder<UUserWidget> EnhanceWBPFinder(
+        TEXT("/Game/UI/Enhance/WBP_EnhanceScreenWidget"));
+    if (EnhanceWBPFinder.Succeeded()) EnhanceScreenWidgetClass = EnhanceWBPFinder.Class;
 }
 
 void APlayerCharacter::BeginPlay()
@@ -131,6 +142,10 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
     if (UsePotionAction)
     {
         EIC->BindAction(UsePotionAction, ETriggerEvent::Started, this, &APlayerCharacter::HandleUsePotion);
+    }
+    if (EnhanceAction)
+    {
+        EIC->BindAction(EnhanceAction, ETriggerEvent::Started, this, &APlayerCharacter::HandleEnhance);
     }
 }
 
@@ -232,6 +247,18 @@ void APlayerCharacter::HandlePause()
     }
 }
 
+void APlayerCharacter::HandleEnhance()
+{
+    if (bEnhanceOpen)
+    {
+        CloseEnhance();
+    }
+    else
+    {
+        OpenEnhance();
+    }
+}
+
 void APlayerCharacter::HandleSprintStart()
 {
     bIsSprinting = true;
@@ -273,6 +300,38 @@ void APlayerCharacter::CloseInventory()
     }
     bInventoryOpen = false;
     if (bPauseMenuOpen == false)
+    {
+        SwitchToGameInput();
+    }
+}
+
+void APlayerCharacter::OpenEnhance()
+{
+    if (bEnhanceOpen) return;
+    APlayerController* PC = Cast<APlayerController>(GetController());
+    if (PC == nullptr) return;
+
+    if (EnhanceScreenWidget == nullptr && EnhanceScreenWidgetClass)
+    {
+        EnhanceScreenWidget = CreateWidget<UUserWidget>(PC, EnhanceScreenWidgetClass);
+    }
+    if (EnhanceScreenWidget)
+    {
+        EnhanceScreenWidget->AddToViewport();
+        bEnhanceOpen = true;
+        SwitchToUIInput();
+    }
+}
+
+void APlayerCharacter::CloseEnhance()
+{
+    if (bEnhanceOpen == false) return;
+    if (EnhanceScreenWidget)
+    {
+        EnhanceScreenWidget->RemoveFromParent();
+    }
+    bEnhanceOpen = false;
+    if (bInventoryOpen == false && bPauseMenuOpen == false)
     {
         SwitchToGameInput();
     }

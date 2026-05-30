@@ -75,6 +75,9 @@ protected:
     UPROPERTY(EditDefaultsOnly, Category = "Input")
     TObjectPtr<UInputAction> UsePotionAction;
 
+    UPROPERTY(EditDefaultsOnly, Category = "Input")
+    TObjectPtr<UInputAction> EnhanceAction;   // 임시 테스트용 단축키 (K)
+
     // ── 입력 액션 (2단계용 — 빈 슬롯) ──────────────────────────────
     UPROPERTY(EditDefaultsOnly, Category = "Input|Phase2")
     TObjectPtr<UInputAction> AttackAction;
@@ -107,6 +110,9 @@ protected:
     UPROPERTY(EditDefaultsOnly, Category = "UI")
     TSubclassOf<UDialogueWidget> DialogueWidgetClass;
 
+    UPROPERTY(EditDefaultsOnly, Category = "UI")
+    TSubclassOf<UUserWidget> EnhanceScreenWidgetClass;   // 임시 테스트용
+
     // ── 컴포넌트 ─────────────────────────────────────────────────────
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
     TObjectPtr<UTradeComponent> TradeComp;
@@ -134,12 +140,15 @@ private:
     void HandleSprintStart();
     void HandleSprintEnd();
     void HandleUsePotion();
+    void HandleEnhance();
 
     // UI 열기/닫기
     void OpenInventory();
     void CloseInventory();
     void OpenPauseMenu();
     void ClosePauseMenu();
+    void OpenEnhance();
+    void CloseEnhance();
     void SwitchToUIInput();
     void SwitchToGameInput();
 
@@ -151,11 +160,15 @@ private:
     UPROPERTY() 
     TObjectPtr<UUserWidget> PauseMenuWidget       = nullptr;
 
-    UPROPERTY() 
+    UPROPERTY()
     TObjectPtr<UDialogueWidget> DialogueWidget        = nullptr;
+
+    UPROPERTY()
+    TObjectPtr<UUserWidget> EnhanceScreenWidget   = nullptr;
 
     bool bInventoryOpen  = false;
     bool bPauseMenuOpen  = false;
+    bool bEnhanceOpen    = false;
 
     UFUNCTION(Server, Reliable)
     void Server_DebugDropItem(int32 ItemID, int32 Quantity);
