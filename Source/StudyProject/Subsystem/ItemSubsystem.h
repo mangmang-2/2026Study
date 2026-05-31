@@ -27,6 +27,9 @@ public:
     // 상점 상품 목록 반환
     TArray<int32> GetShopItems(int32 ShopID) const;
 
+    // DT_ItemData의 모든 아이템 ID (상점 랜덤 추첨 등에 사용)
+    TArray<int32> GetAllItemIDs() const;
+
 private:
     UPROPERTY()
     TObjectPtr<UDataTable> ItemDataTable = nullptr;

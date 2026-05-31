@@ -40,6 +40,9 @@ namespace
             return;
         }
 
+        // 디버그: 강화/상점/거래 테스트용 골드 지급
+        PC->AddGold(100000);
+
         UDataTable* DT = LoadObject<UDataTable>(nullptr, TEXT("/Game/Data/DT_ItemData.DT_ItemData"));
         if (DT == nullptr)
         {

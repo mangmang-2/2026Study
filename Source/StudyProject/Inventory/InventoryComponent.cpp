@@ -296,6 +296,19 @@ void UInventoryComponent::SortByName()
     OnInventoryChanged.Broadcast();
 }
 
+void UInventoryComponent::SetSlotEnhanceLevel(int32 SlotIndex, int32 NewLevel)
+{
+    if (!GetOwner()->HasAuthority()) return;
+    if (!InventoryList.Slots.IsValidIndex(SlotIndex)) return;
+
+    FInventorySlot& Slot = InventoryList.Slots[SlotIndex];
+    if (Slot.IsEmpty()) return;
+
+    Slot.EnhanceLevel = NewLevel;
+    InventoryList.MarkItemDirty(Slot);
+    OnInventoryChanged.Broadcast();
+}
+
 // ── Server RPC 구현 ───────────────────────────────────────────────────
 
 void UInventoryComponent::Server_AddItem_Implementation(int32 ItemID, int32 Quantity)       { Internal_AddItem(ItemID, Quantity); }

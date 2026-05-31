@@ -8,6 +8,7 @@
 class UInventoryComponent;
 class UEquipmentComponent;
 class UEnhanceComponent;
+class UShopComponent;
 
 UCLASS()
 class STUDYPROJECT_API ACharacterBase : public ACharacter
@@ -26,6 +27,9 @@ public:
 
     UFUNCTION(BlueprintCallable, Category = "Components")
     UEnhanceComponent*   GetEnhanceComponent()   const { return EnhanceComp; }
+
+    UFUNCTION(BlueprintCallable, Category = "Components")
+    UShopComponent*      GetShopComponent()      const { return ShopComp; }
 
     // 골드
     UFUNCTION(BlueprintCallable, Category = "Gold")
@@ -81,6 +85,9 @@ protected:
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
     TObjectPtr<UEnhanceComponent> EnhanceComp;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+    TObjectPtr<UShopComponent> ShopComp;
 
     UPROPERTY(EditDefaultsOnly, Category = "Save")
     FString SaveSlotName = TEXT("PlayerSave");

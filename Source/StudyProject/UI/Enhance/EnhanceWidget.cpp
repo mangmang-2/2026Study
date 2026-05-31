@@ -12,10 +12,25 @@ void UEnhanceWidget::NativeConstruct()
 {
     Super::NativeConstruct();
     CachedTargetSlotWidget   = Cast<UItemSlotWidget>(GetWidgetFromName(TEXT("TargetSlotWidget")));
-    CachedMaterialSlotWidget = Cast<UItemSlotWidget>(GetWidgetFromName(TEXT("MaterialSlotWidget")));
+
+    // 인벤에서 드래그한 아이템을 타겟 슬롯에 떨구면 강화 대상으로 지정
+    if (CachedTargetSlotWidget)
+    {
+        CachedTargetSlotWidget->OnSlotDrop.AddUniqueDynamic(this, &UEnhanceWidget::HandleTargetDrop);
+    }
+
     if (EnhanceButton)
     {
         EnhanceButton->OnClicked.AddDynamic(this, &UEnhanceWidget::HandleEnhanceButton);
+    }
+}
+
+void UEnhanceWidget::HandleTargetDrop(ESlotContext SourceContext, int32 FromSlot, int32 ToSlot)
+{
+    // 인벤토리에서 온 드롭만 강화 대상으로 받음
+    if (SourceContext == ESlotContext::Inventory)
+    {
+        OnTargetSlotDrop(FromSlot);
     }
 }
 
@@ -117,15 +132,6 @@ void UEnhanceWidget::RefreshEnhanceInfo()
                 ? FText::Format(FText::FromString(TEXT("{0} x{1}")), MatData->ItemName, Rate->MaterialCount)
                 : FText::GetEmpty());
         }
-
-        if (CachedMaterialSlotWidget != nullptr && MaterialSlotIndex >= 0)
-        {
-            const FInventorySlot& MatInvSlot = InvComp->GetSlot(MaterialSlotIndex);
-            if (MatInvSlot.IsEmpty() == false && MatData != nullptr)
-            {
-                CachedMaterialSlotWidget->SetItemData(*MatData, MatInvSlot.Quantity, 0);
-            }
-        }
     }
 
     if (ResultText != nullptr)
@@ -153,10 +159,6 @@ void UEnhanceWidget::ClearSlots()
     if (CachedTargetSlotWidget != nullptr)
     {
         CachedTargetSlotWidget->ClearSlot();
-    }
-    if (CachedMaterialSlotWidget != nullptr)
-    {
-        CachedMaterialSlotWidget->ClearSlot();
     }
     if (LevelText != nullptr)
     {

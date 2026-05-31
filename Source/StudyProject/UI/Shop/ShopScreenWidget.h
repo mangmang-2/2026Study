@@ -32,6 +32,5 @@ protected:
     virtual void NativeDestruct() override;
 
 private:
-    UFUNCTION() void HandleBuy(int32 ItemID, int32 Quantity);
-    UFUNCTION() void HandleSell(int32 InvSlot, int32 Quantity);
+    UFUNCTION() void HandleShopChanged();   // ShopComponent 갱신 → 목록/골드 새로고침
 };

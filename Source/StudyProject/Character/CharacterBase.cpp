@@ -2,6 +2,7 @@
 #include "Inventory/InventoryComponent.h"
 #include "Inventory/EquipmentComponent.h"
 #include "Inventory/EnhanceComponent.h"
+#include "Inventory/ShopComponent.h"
 #include "Data/GameSaveData.h"
 #include "Kismet/GameplayStatics.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -13,6 +14,7 @@ ACharacterBase::ACharacterBase()
     InventoryComp = CreateDefaultSubobject<UInventoryComponent>(TEXT("InventoryComp"));
     EquipmentComp = CreateDefaultSubobject<UEquipmentComponent>(TEXT("EquipmentComp"));
     EnhanceComp   = CreateDefaultSubobject<UEnhanceComponent>  (TEXT("EnhanceComp"));
+    ShopComp      = CreateDefaultSubobject<UShopComponent>     (TEXT("ShopComp"));
 
     // Modular Character 파츠 (메인 메시에 Leader Pose)
     HeadMesh     = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("HeadMesh"));

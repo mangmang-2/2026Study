@@ -1,5 +1,6 @@
 ﻿#include "EnhanceComponent.h"
 #include "Inventory/InventoryComponent.h"
+#include "Character/CharacterBase.h"
 #include "Engine/World.h"
 
 UEnhanceComponent::UEnhanceComponent()
@@ -37,27 +38,33 @@ void UEnhanceComponent::Internal_TryEnhance(int32 InventorySlot)
     const FEnhanceRateRow* Rate = GetEnhanceRate(Slot.EnhanceLevel);
     if (!Rate) return;
 
-    // 재료 보유 확인
+    // 재료 보유 확인 (소모 전에 먼저 확인)
     if (!InvComp->HasItem(Rate->MaterialID, Rate->MaterialCount)) return;
 
-    // TODO: 골드 차감 확인 (PlayerStatComponent 연동 후 구현)
+    // 골드 확인 및 차감 (소유 캐릭터의 Gold). 부족하면 강화 중단(재료도 소모 안 함)
+    ACharacterBase* OwnerChar = Cast<ACharacterBase>(GetOwner());
+    if (Rate->GoldCost > 0)
+    {
+        if (OwnerChar == nullptr || !OwnerChar->SpendGold(Rate->GoldCost))
+        {
+            return;
+        }
+    }
 
     // 재료 소모
     int32 MatSlot = InvComp->FindItemByID(Rate->MaterialID);
     if (MatSlot != -1) InvComp->RemoveItem(MatSlot, Rate->MaterialCount);
 
     // 성공 판정
-    bool bSuccess = FMath::FRand() <= Rate->SuccessRate;
+    const bool bSuccess = FMath::FRand() <= Rate->SuccessRate;
+    const int32 NewLevel = bSuccess
+        ? Slot.EnhanceLevel + 1
+        : FMath::Max(0, Slot.EnhanceLevel + Rate->FailPenalty);
 
-    if (bSuccess)
-    {
-        Multicast_OnEnhanceResult(true, Slot.EnhanceLevel + 1);
-    }
-    else
-    {
-        int32 NewLevel = FMath::Max(0, Slot.EnhanceLevel + Rate->FailPenalty);
-        Multicast_OnEnhanceResult(false, NewLevel);
-    }
+    // 실제 인벤토리 슬롯에 강화 레벨 반영(서버 권위)
+    InvComp->SetSlotEnhanceLevel(InventorySlot, NewLevel);
+
+    Multicast_OnEnhanceResult(bSuccess, NewLevel);
 }
 
 void UEnhanceComponent::Multicast_OnEnhanceResult_Implementation(bool bSuccess, int32 NewLevel)

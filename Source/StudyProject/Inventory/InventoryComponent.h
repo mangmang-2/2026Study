@@ -89,6 +89,9 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Inventory")
     void SortByName();
 
+    // 강화 등에서 특정 슬롯의 강화 레벨을 설정(서버 권위, C++ 전용)
+    void SetSlotEnhanceLevel(int32 SlotIndex, int32 NewLevel);
+
     // 슬롯 조회
     UFUNCTION(BlueprintCallable, Category = "Inventory")
     const FInventorySlot& GetSlot(int32 Index) const;

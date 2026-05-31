@@ -1,16 +1,15 @@
-﻿#pragma once
+#pragma once
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
 #include "Data/ItemData.h"
+#include "Data/SlotContext.h"
 #include "ShopWidget.generated.h"
 
 class UScrollBox;
 class UItemSlotWidget;
 class UTextBlock;
-
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnShopBuy,  int32, ItemID, int32, Quantity);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnShopSell, int32, InvSlot, int32, Quantity);
+class UShopComponent;
 
 UCLASS(Abstract)
 class STUDYPROJECT_API UShopWidget : public UUserWidget
@@ -18,24 +17,28 @@ class STUDYPROJECT_API UShopWidget : public UUserWidget
     GENERATED_BODY()
 
 public:
+    // 서버 권위 ShopComponent 연결(목록은 컴포넌트에서 읽음)
     UFUNCTION(BlueprintCallable, Category = "Shop")
-    void InitShop(int32 ShopID);
+    void SetShopComponent(UShopComponent* InShopComp);
 
     UFUNCTION(BlueprintCallable, Category = "Shop")
     void RefreshShopList();
 
-    UPROPERTY(BlueprintAssignable, Category = "Shop") FOnShopBuy  OnBuyClicked;
-    UPROPERTY(BlueprintAssignable, Category = "Shop") FOnShopSell OnSellClicked;
-
 protected:
-    UPROPERTY(meta = (BindWidget)) TObjectPtr<UScrollBox> ShopList = nullptr;
-    UPROPERTY(meta = (BindWidget)) TObjectPtr<UTextBlock> GoldText = nullptr;
+    UPROPERTY(meta = (BindWidget))         TObjectPtr<UScrollBox> ShopList    = nullptr;
+    UPROPERTY(meta = (BindWidgetOptional)) TObjectPtr<UScrollBox> BuybackList = nullptr;   // 되사기 목록(있으면 표시)
+    UPROPERTY(meta = (BindWidgetOptional)) TObjectPtr<UTextBlock> GoldText    = nullptr;
 
     UPROPERTY(EditDefaultsOnly, Category = "Shop")
     TSubclassOf<UItemSlotWidget> ShopSlotClass;
 
-private:
-    int32 CurrentShopID = 0;
+    // 인벤 아이템을 상점 패널에 드롭하면 판매
+    virtual bool NativeOnDrop(const FGeometry& InGeometry, const FDragDropEvent& InDragDropEvent, UDragDropOperation* InOperation) override;
 
-    UFUNCTION() void HandleShopItemClicked(int32 SlotIndex);
+private:
+    TWeakObjectPtr<UShopComponent> ShopComp;
+
+    UFUNCTION() void HandleShopItemClicked(int32 SlotIndex);   // 상점 아이템 우클릭 → 구매
+    UFUNCTION() void HandleBuybackClicked(int32 SlotIndex);    // 되사기 아이템 우클릭 → 재구매
+    UFUNCTION() void HandleShopSlotDrop(ESlotContext SourceContext, int32 FromSlot, int32 ToSlot);
 };
