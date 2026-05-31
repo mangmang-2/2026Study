@@ -10,11 +10,28 @@
 #include "GameFramework/Character.h"
 #include "TimerManager.h"
 #include "Blueprint/WidgetLayoutLibrary.h"
+#include "Components/Button.h"
+#include "Components/PanelWidget.h"
+#include "Framework/Application/SlateApplication.h"
 
 void UInventoryWidget::NativeConstruct()
 {
     Super::NativeConstruct();
+
+    if (FilterAllButton)        FilterAllButton->OnClicked.AddUniqueDynamic(this, &UInventoryWidget::OnFilterAllClicked);
+    if (FilterWeaponButton)     FilterWeaponButton->OnClicked.AddUniqueDynamic(this, &UInventoryWidget::OnFilterWeaponClicked);
+    if (FilterArmorButton)      FilterArmorButton->OnClicked.AddUniqueDynamic(this, &UInventoryWidget::OnFilterArmorClicked);
+    if (FilterConsumableButton) FilterConsumableButton->OnClicked.AddUniqueDynamic(this, &UInventoryWidget::OnFilterConsumableClicked);
+    if (SortRarityButton)       SortRarityButton->OnClicked.AddUniqueDynamic(this, &UInventoryWidget::OnSortRarityClicked);
+    if (SortNameButton)         SortNameButton->OnClicked.AddUniqueDynamic(this, &UInventoryWidget::OnSortNameClicked);
 }
+
+void UInventoryWidget::OnFilterAllClicked()        { FilterByType(EItemType::All); }
+void UInventoryWidget::OnFilterWeaponClicked()     { FilterByType(EItemType::Weapon); }
+void UInventoryWidget::OnFilterArmorClicked()      { FilterByType(EItemType::Armor); }
+void UInventoryWidget::OnFilterConsumableClicked() { FilterByType(EItemType::Consumable); }
+void UInventoryWidget::OnSortRarityClicked()       { SortItems(ESortMode::ByRarity); }
+void UInventoryWidget::OnSortNameClicked()         { SortItems(ESortMode::ByName); }
 
 void UInventoryWidget::NativeDestruct()
 {
@@ -56,10 +73,24 @@ void UInventoryWidget::RefreshInventory()
         return;
     }
 
+    UItemSubsystem* FilterSub = (CurrentFilter != EItemType::All && GetWorld())
+        ? GetWorld()->GetGameInstance()->GetSubsystem<UItemSubsystem>() : nullptr;
+
     TArray<FInventorySlot> Slots;
     for (int32 i = 0; i < BoundInventory->GetMaxSlots(); ++i)
     {
-        Slots.Add(BoundInventory->GetSlot(i));
+        FInventorySlot S = BoundInventory->GetSlot(i);
+
+        // 필터 적용: 종류가 안 맞으면 표시상 빈 칸으로(실제 데이터는 유지)
+        if (CurrentFilter != EItemType::All && S.IsEmpty() == false)
+        {
+            const FItemData* D = FilterSub ? FilterSub->GetItemData(S.ItemID) : nullptr;
+            if (D == nullptr || D->ItemType != CurrentFilter)
+            {
+                continue;
+            }
+        }
+        Slots.Add(S);
     }
 
     GridWidget->RefreshGrid(Slots);
@@ -95,6 +126,7 @@ void UInventoryWidget::SortItems(ESortMode Mode)
         return;
     }
     CurrentSort = Mode;
+    CurrentFilter = EItemType::All;   // 정렬은 항상 전체 아이템 대상(필터 리셋)
     if (Mode == ESortMode::ByRarity)
     {
         BoundInventory->SortByRarity();
@@ -127,13 +159,29 @@ void UInventoryWidget::ShowTooltip(int32 SlotIndex)
     }
 
     Tooltip->SetItemData(*Data);
-
-    // 커서 근처에 위치(뷰포트 스케일 보정), 살짝 우하단 오프셋
-    const float Scale = UWidgetLayoutLibrary::GetViewportScale(this);
-    FVector2D MousePos = UWidgetLayoutLibrary::GetMousePositionOnViewport(GetWorld());
-    Tooltip->SetPosition(MousePos + FVector2D(16.f, 16.f) / FMath::Max(Scale, 0.01f));
-
     Tooltip->SetVisibility(ESlateVisibility::HitTestInvisible);
+
+    // 크기 계산 전 레이아웃 갱신(내용에 따라 desired size가 바뀌므로)
+    Tooltip->ForceLayoutPrepass();
+
+    // Tooltip은 InventoryWidget(→ScreenWidget) 안에 중첩돼 있으므로
+    // 커서(절대 좌표)를 Tooltip 부모 캔버스의 "로컬 좌표"로 변환해야 위치가 맞음.
+    UPanelWidget* TipParent = Tooltip->GetParent();
+    const FGeometry ParentGeo = TipParent ? TipParent->GetCachedGeometry() : GetCachedGeometry();
+    const FVector2D AbsCursor = FSlateApplication::Get().GetCursorPos();
+    const FVector2D Local     = ParentGeo.AbsoluteToLocal(AbsCursor);
+    const FVector2D AreaSize  = ParentGeo.GetLocalSize();
+    const FVector2D TipSize   = Tooltip->GetDesiredSize();
+    const FVector2D Margin(16.f, 16.f);
+
+    // 기본은 커서 우하단. 영역 밖으로 나가면 반대쪽으로 뒤집고, 그래도 넘치면 안쪽으로 클램프
+    FVector2D Pos = Local + Margin;
+    if (Pos.X + TipSize.X > AreaSize.X) { Pos.X = Local.X - Margin.X - TipSize.X; }
+    if (Pos.Y + TipSize.Y > AreaSize.Y) { Pos.Y = Local.Y - Margin.Y - TipSize.Y; }
+    Pos.X = FMath::Clamp(Pos.X, 0.f, FMath::Max(0.f, AreaSize.X - TipSize.X));
+    Pos.Y = FMath::Clamp(Pos.Y, 0.f, FMath::Max(0.f, AreaSize.Y - TipSize.Y));
+
+    Tooltip->SetPosition(Pos);
 }
 
 void UInventoryWidget::HideTooltip()

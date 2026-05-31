@@ -270,6 +270,7 @@ void UInventoryComponent::SortByRarity()
         return (uint8)DataA->Rarity > (uint8)DataB->Rarity;
     });
 
+    InventoryList.MarkArrayDirty();
     OnInventoryChanged.Broadcast();
 }
 
@@ -291,6 +292,7 @@ void UInventoryComponent::SortByName()
         return DataA->ItemName.ToString() < DataB->ItemName.ToString();
     });
 
+    InventoryList.MarkArrayDirty();
     OnInventoryChanged.Broadcast();
 }
 

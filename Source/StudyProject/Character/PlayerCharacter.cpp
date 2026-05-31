@@ -294,8 +294,25 @@ void APlayerCharacter::OnFocusChanged(AActor* NewFocus)
 
 void APlayerCharacter::UpdateInteractionPrompt()
 {
-    if (InteractionPromptW == nullptr || LastFocusedActor == nullptr) return;
-    if (InteractionPromptW->GetVisibility() == ESlateVisibility::Collapsed) return;
+    if (InteractionPromptW == nullptr) return;
+
+    // 대화/강화/상점/인벤/일시정지 등 UI가 떠 있으면 상호작용 프롬프트(F:강화 등)는 숨김
+    const bool bDialogueOpen = (DialogueWidget != nullptr && DialogueWidget->IsInViewport());
+    const bool bUIOpen = bDialogueOpen || bInventoryOpen || bPauseMenuOpen || bEnhanceOpen || bShopOpen;
+    if (bUIOpen || LastFocusedActor == nullptr)
+    {
+        if (InteractionPromptW->GetVisibility() != ESlateVisibility::Collapsed)
+        {
+            InteractionPromptW->SetVisibility(ESlateVisibility::Collapsed);
+        }
+        return;
+    }
+
+    // 포커스 유지 중 대화가 닫혔다면 다시 표시(복구)
+    if (InteractionPromptW->GetVisibility() == ESlateVisibility::Collapsed)
+    {
+        InteractionPromptW->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+    }
 
     APlayerController* PC = Cast<APlayerController>(GetController());
     if (PC == nullptr) return;

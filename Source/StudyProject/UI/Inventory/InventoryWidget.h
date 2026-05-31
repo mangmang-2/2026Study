@@ -10,6 +10,7 @@ class UInventoryComponent;
 class UInventoryGridWidget;
 class UTooltipWidget;
 class UContextMenuWidget;
+class UButton;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnItemSelected, int32, SlotIndex);
 
@@ -48,6 +49,14 @@ protected:
     UPROPERTY(meta = (BindWidget)) TObjectPtr<UTooltipWidget> Tooltip     = nullptr;
     UPROPERTY(meta = (BindWidget)) TObjectPtr<UContextMenuWidget> ContextMenu = nullptr;
 
+    // 정렬/필터 툴바 버튼 (WBP에 있으면 자동 바인딩)
+    UPROPERTY(meta = (BindWidgetOptional)) TObjectPtr<UButton> FilterAllButton        = nullptr;
+    UPROPERTY(meta = (BindWidgetOptional)) TObjectPtr<UButton> FilterWeaponButton     = nullptr;
+    UPROPERTY(meta = (BindWidgetOptional)) TObjectPtr<UButton> FilterArmorButton      = nullptr;
+    UPROPERTY(meta = (BindWidgetOptional)) TObjectPtr<UButton> FilterConsumableButton = nullptr;
+    UPROPERTY(meta = (BindWidgetOptional)) TObjectPtr<UButton> SortRarityButton       = nullptr;
+    UPROPERTY(meta = (BindWidgetOptional)) TObjectPtr<UButton> SortNameButton         = nullptr;
+
     UPROPERTY(EditDefaultsOnly, Category = "Inventory")
     ESlotContext Context = ESlotContext::Inventory;
 
@@ -74,4 +83,12 @@ private:
     UFUNCTION() void HandleSlotRightClicked(int32 SlotIndex);
     UFUNCTION() void HandleSlotDrop(ESlotContext SourceContext, int32 FromSlot, int32 ToSlot);
     UFUNCTION() void HandleInventoryChanged();
+
+    // 툴바 버튼 핸들러
+    UFUNCTION() void OnFilterAllClicked();
+    UFUNCTION() void OnFilterWeaponClicked();
+    UFUNCTION() void OnFilterArmorClicked();
+    UFUNCTION() void OnFilterConsumableClicked();
+    UFUNCTION() void OnSortRarityClicked();
+    UFUNCTION() void OnSortNameClicked();
 };
