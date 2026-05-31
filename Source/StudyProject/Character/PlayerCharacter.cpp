@@ -22,6 +22,45 @@
 #include "Blueprint/WidgetLayoutLibrary.h"
 #include "Subsystem/ItemSubsystem.h"
 #include "Engine/GameInstance.h"
+#include "Engine/DataTable.h"
+
+namespace
+{
+    // 디버그: DT_ItemData의 모든 아이템을 인벤토리에 지급 (서버에서 호출)
+    void DebugGiveAllItems(APlayerCharacter* PC)
+    {
+        if (PC == nullptr)
+        {
+            return;
+        }
+
+        UInventoryComponent* Inv = PC->GetInventoryComponent();
+        if (Inv == nullptr)
+        {
+            return;
+        }
+
+        UDataTable* DT = LoadObject<UDataTable>(nullptr, TEXT("/Game/Data/DT_ItemData.DT_ItemData"));
+        if (DT == nullptr)
+        {
+            return;
+        }
+
+        for (const FName& RowName : DT->GetRowNames())
+        {
+            const FItemData* Row = DT->FindRow<FItemData>(RowName, TEXT("DebugGiveAll"));
+            if (Row == nullptr)
+            {
+                continue;
+            }
+            if (Inv->IsFull())
+            {
+                break;
+            }
+            Inv->AddItem(Row->ItemID, 1);
+        }
+    }
+}
 
 APlayerCharacter::APlayerCharacter()
 {
@@ -115,6 +154,7 @@ void APlayerCharacter::NotifyControllerChanged()
                 Subsystem->AddMappingContext(DefaultMappingContext, 0);
         }
     }
+    DebugDropItem(0);
 }
 
 void APlayerCharacter::Tick(float DeltaSeconds)
@@ -546,10 +586,15 @@ void APlayerCharacter::DebugDropItem(int32 ItemID, int32 Quantity)
         return;
     }
 
-    const FVector SpawnLoc = GetActorLocation() + GetActorForwardVector() * 150.f;
-
     if (HasAuthority())
     {
+        // ItemID <= 0 → 인벤토리에 전체 지급, 그 외 → 바닥에 드롭
+        if (ItemID <= 0)
+        {
+            DebugGiveAllItems(this);
+            return;
+        }
+        const FVector SpawnLoc = GetActorLocation() + GetActorForwardVector() * 150.f;
         ItemSub->SpawnItemInWorld(ItemID, Quantity, SpawnLoc, GetWorld());
         return;
     }
@@ -571,6 +616,11 @@ void APlayerCharacter::Server_DebugDropItem_Implementation(int32 ItemID, int32 Q
         return;
     }
 
+    if (ItemID <= 0)
+    {
+        DebugGiveAllItems(this);
+        return;
+    }
     const FVector SpawnLoc = GetActorLocation() + GetActorForwardVector() * 150.f;
     ItemSub->SpawnItemInWorld(ItemID, Quantity, SpawnLoc, GetWorld());
 }

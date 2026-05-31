@@ -18,6 +18,21 @@ void UInventoryComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& 
     DOREPLIFETIME(UInventoryComponent, InventoryList);
 }
 
+void UInventoryComponent::BeginPlay()
+{
+    Super::BeginPlay();
+
+    // 생성자에서 SetNum(MaxSlots)는 C++ 기본값(30) 기준이므로, BP에서 바꾼 MaxSlots에 맞춰 재조정
+    if (GetOwner() != nullptr && GetOwner()->HasAuthority())
+    {
+        if (InventoryList.Slots.Num() != MaxSlots)
+        {
+            InventoryList.Slots.SetNum(MaxSlots);
+            InventoryList.MarkArrayDirty();
+        }
+    }
+}
+
 // ── 공개 API ─────────────────────────────────────────────────────────
 
 bool UInventoryComponent::AddItem(int32 ItemID, int32 Quantity)
@@ -44,6 +59,32 @@ bool UInventoryComponent::RemoveItem(int32 SlotIndex, int32 Quantity)
         {
             Slot.ItemID   = 0;
             Slot.Quantity = 0;
+
+            // 빈칸이 생기면 뒤 아이템들을 앞으로 당김(compaction)
+            TArray<FInventorySlot> Packed;
+            for (const FInventorySlot& S : InventoryList.Slots)
+            {
+                if (S.IsEmpty() == false)
+                {
+                    Packed.Add(S);
+                }
+            }
+            for (int32 i = 0; i < InventoryList.Slots.Num(); ++i)
+            {
+                if (i < Packed.Num())
+                {
+                    InventoryList.Slots[i] = Packed[i];
+                }
+                else
+                {
+                    InventoryList.Slots[i].ItemID       = 0;
+                    InventoryList.Slots[i].Quantity     = 0;
+                    InventoryList.Slots[i].EnhanceLevel = 0;
+                }
+                InventoryList.MarkItemDirty(InventoryList.Slots[i]);
+            }
+            OnInventoryChanged.Broadcast();
+            return true;
         }
         InventoryList.MarkItemDirty(Slot);
         OnInventoryChanged.Broadcast();

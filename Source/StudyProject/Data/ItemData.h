@@ -42,11 +42,16 @@ enum class EItemRarity : uint8
 UENUM(BlueprintType)
 enum class EEquipSlot : uint8
 {
-    None    UMETA(DisplayName = "없음"),
-    Head    UMETA(DisplayName = "머리"),
-    Body    UMETA(DisplayName = "상의"),
-    Weapon  UMETA(DisplayName = "무기"),
-    Shield  UMETA(DisplayName = "방패"),
+    None     UMETA(DisplayName = "없음"),
+    Head     UMETA(DisplayName = "머리"),
+    Body     UMETA(DisplayName = "상의"),
+    Hands    UMETA(DisplayName = "장갑"),
+    Legs     UMETA(DisplayName = "하의"),
+    Feet     UMETA(DisplayName = "신발"),
+    Shoulder UMETA(DisplayName = "어깨"),
+    Arms     UMETA(DisplayName = "팔"),
+    Weapon   UMETA(DisplayName = "무기"),
+    Shield   UMETA(DisplayName = "방패"),
 };
 
 USTRUCT(BlueprintType)

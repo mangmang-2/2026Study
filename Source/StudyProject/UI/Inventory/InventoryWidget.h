@@ -60,11 +60,18 @@ protected:
     virtual void NativeConstruct() override;
     virtual void NativeDestruct() override;
 
+    UPROPERTY(EditDefaultsOnly, Category = "Inventory")
+    float TooltipDelay = 1.0f;   // 마우스를 올리고 툴팁이 뜨기까지 대기 시간(초)
+
 private:
     TWeakObjectPtr<UInventoryComponent> BoundInventory;
 
+    FTimerHandle TooltipTimerHandle;
+    int32 PendingTooltipSlot = -1;
+    void ShowPendingTooltip();
+
     UFUNCTION() void HandleSlotHovered(int32 SlotIndex);
     UFUNCTION() void HandleSlotRightClicked(int32 SlotIndex);
-    UFUNCTION() void HandleSlotDrop(int32 FromSlot, int32 ToSlot);
+    UFUNCTION() void HandleSlotDrop(ESlotContext SourceContext, int32 FromSlot, int32 ToSlot);
     UFUNCTION() void HandleInventoryChanged();
 };

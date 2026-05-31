@@ -12,7 +12,7 @@ class UProgressBar;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnSlotHovered,      int32, SlotIndex);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnSlotRightClicked, int32, SlotIndex);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnSlotDrop, int32, FromSlot, int32, ToSlot);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnSlotDrop, ESlotContext, SourceContext, int32, FromSlot, int32, ToSlot);
 
 UCLASS(Abstract)
 class STUDYPROJECT_API UItemSlotWidget : public UUserWidget

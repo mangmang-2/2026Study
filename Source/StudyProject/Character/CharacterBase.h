@@ -49,6 +49,21 @@ public:
     TObjectPtr<USkeletalMeshComponent> BodyMesh;
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mesh")
+    TObjectPtr<USkeletalMeshComponent> HandsMesh;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mesh")
+    TObjectPtr<USkeletalMeshComponent> LegsMesh;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mesh")
+    TObjectPtr<USkeletalMeshComponent> FeetMesh;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mesh")
+    TObjectPtr<USkeletalMeshComponent> ShoulderMesh;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mesh")
+    TObjectPtr<USkeletalMeshComponent> ArmsMesh;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mesh")
     TObjectPtr<USkeletalMeshComponent> WeaponMesh;
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mesh")

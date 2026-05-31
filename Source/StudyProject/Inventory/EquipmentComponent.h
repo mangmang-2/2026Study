@@ -12,14 +12,24 @@ struct FEquippedItemsData
 {
     GENERATED_BODY()
 
-    UPROPERTY() 
-    int32 HeadItemID   = 0;
-    UPROPERTY() 
-    int32 BodyItemID   = 0;
-    UPROPERTY() 
-    int32 WeaponItemID = 0;
-    UPROPERTY() 
-    int32 ShieldItemID = 0;
+    UPROPERTY()
+    int32 HeadItemID     = 0;
+    UPROPERTY()
+    int32 BodyItemID     = 0;
+    UPROPERTY()
+    int32 HandsItemID    = 0;
+    UPROPERTY()
+    int32 LegsItemID     = 0;
+    UPROPERTY()
+    int32 FeetItemID     = 0;
+    UPROPERTY()
+    int32 ShoulderItemID = 0;
+    UPROPERTY()
+    int32 ArmsItemID     = 0;
+    UPROPERTY()
+    int32 WeaponItemID   = 0;
+    UPROPERTY()
+    int32 ShieldItemID   = 0;
 
     int32  Get(EEquipSlot Slot) const;
     void   Set(EEquipSlot Slot, int32 ItemID);

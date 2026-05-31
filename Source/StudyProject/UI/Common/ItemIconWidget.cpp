@@ -4,14 +4,9 @@
 
 void UItemIconWidget::SetItemData(const FItemData& Data)
 {
-    if (Data.Icon.IsValid())
-    {
-        SetIconTexture(Data.Icon.Get());
-    }
-    else
-    {
-        SetIconTexture(nullptr);
-    }
+    // 소프트 포인터는 아직 미로드 상태일 수 있으므로 동기 로드 (IsValid는 로드된 것만 true)
+    UTexture2D* Tex = Data.Icon.IsNull() ? nullptr : Data.Icon.LoadSynchronous();
+    SetIconTexture(Tex);
     SetRarity(Data.Rarity);
 }
 
@@ -25,6 +20,8 @@ void UItemIconWidget::SetIconTexture(UTexture2D* Texture)
     if (Texture)
     {
         IconImage->SetBrushFromTexture(Texture);
+        // WBP 기본 ColorAndOpacity 알파가 0이면 투명하게 렌더되므로 흰색 불투명으로 강제
+        IconImage->SetColorAndOpacity(FLinearColor::White);
         IconImage->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
     }
     else

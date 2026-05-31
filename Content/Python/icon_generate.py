@@ -102,7 +102,7 @@ def run():
         # RenderTarget → Texture2D 저장
         texture_save_path = save_path.rstrip("/") + "/T_Icon_" + asset_name
         try:
-            unreal.KismetRenderingLibrary.render_target_create_static_texture2d_editor_only(
+            unreal.RenderingLibrary.render_target_create_static_texture2d_editor_only(
                 rt, texture_save_path
             )
             unreal.EditorAssetLibrary.save_asset(texture_save_path)

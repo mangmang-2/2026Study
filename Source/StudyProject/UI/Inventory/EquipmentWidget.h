@@ -27,13 +27,23 @@ public:
 protected:
     // UserWidget 인스턴스는 BindWidget 대신 NativeConstruct에서 GetWidgetFromName으로 수동 바인딩
     UPROPERTY()
-    TObjectPtr<UItemSlotWidget> CachedHeadSlot   = nullptr;
+    TObjectPtr<UItemSlotWidget> CachedHeadSlot     = nullptr;
     UPROPERTY()
-    TObjectPtr<UItemSlotWidget> CachedBodySlot   = nullptr;
+    TObjectPtr<UItemSlotWidget> CachedBodySlot     = nullptr;
     UPROPERTY()
-    TObjectPtr<UItemSlotWidget> CachedWeaponSlot = nullptr;
+    TObjectPtr<UItemSlotWidget> CachedHandsSlot    = nullptr;
     UPROPERTY()
-    TObjectPtr<UItemSlotWidget> CachedShieldSlot = nullptr;
+    TObjectPtr<UItemSlotWidget> CachedLegsSlot     = nullptr;
+    UPROPERTY()
+    TObjectPtr<UItemSlotWidget> CachedFeetSlot     = nullptr;
+    UPROPERTY()
+    TObjectPtr<UItemSlotWidget> CachedShoulderSlot = nullptr;
+    UPROPERTY()
+    TObjectPtr<UItemSlotWidget> CachedArmsSlot     = nullptr;
+    UPROPERTY()
+    TObjectPtr<UItemSlotWidget> CachedWeaponSlot   = nullptr;
+    UPROPERTY()
+    TObjectPtr<UItemSlotWidget> CachedShieldSlot   = nullptr;
 
     UPROPERTY(meta = (BindWidget)) TObjectPtr<UTextBlock> ATKText = nullptr;
     UPROPERTY(meta = (BindWidget)) TObjectPtr<UTextBlock> DEFText = nullptr;
@@ -50,7 +60,7 @@ private:
     void HandleEquipmentChanged();
 
     UFUNCTION()
-    void HandleSlotDrop(int32 FromSlot, int32 ToSlot);
+    void HandleSlotDrop(ESlotContext SourceContext, int32 FromSlot, int32 ToSlot);
 
     UFUNCTION()
     void HandleSlotRightClicked(int32 SlotIndex);

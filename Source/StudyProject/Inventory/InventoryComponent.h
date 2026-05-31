@@ -104,8 +104,10 @@ public:
     FOnInventoryChanged OnInventoryChanged;
 
 protected:
+    virtual void BeginPlay() override;
+
     UPROPERTY(EditDefaultsOnly, Category = "Inventory")
-    int32 MaxSlots = 30;
+    int32 MaxSlots = 70;
 
     UPROPERTY(Replicated)
     FInventoryList InventoryList;

@@ -10,10 +10,15 @@
 void UEquipmentWidget::NativeConstruct()
 {
     Super::NativeConstruct();
-    CachedHeadSlot   = Cast<UItemSlotWidget>(GetWidgetFromName(TEXT("HeadSlot")));
-    CachedBodySlot   = Cast<UItemSlotWidget>(GetWidgetFromName(TEXT("BodySlot")));
-    CachedWeaponSlot = Cast<UItemSlotWidget>(GetWidgetFromName(TEXT("WeaponSlot")));
-    CachedShieldSlot = Cast<UItemSlotWidget>(GetWidgetFromName(TEXT("ShieldSlot")));
+    CachedHeadSlot     = Cast<UItemSlotWidget>(GetWidgetFromName(TEXT("HeadSlot")));
+    CachedBodySlot     = Cast<UItemSlotWidget>(GetWidgetFromName(TEXT("BodySlot")));
+    CachedHandsSlot    = Cast<UItemSlotWidget>(GetWidgetFromName(TEXT("HandsSlot")));
+    CachedLegsSlot     = Cast<UItemSlotWidget>(GetWidgetFromName(TEXT("LegsSlot")));
+    CachedFeetSlot     = Cast<UItemSlotWidget>(GetWidgetFromName(TEXT("FeetSlot")));
+    CachedShoulderSlot = Cast<UItemSlotWidget>(GetWidgetFromName(TEXT("ShoulderSlot")));
+    CachedArmsSlot     = Cast<UItemSlotWidget>(GetWidgetFromName(TEXT("ArmsSlot")));
+    CachedWeaponSlot   = Cast<UItemSlotWidget>(GetWidgetFromName(TEXT("WeaponSlot")));
+    CachedShieldSlot   = Cast<UItemSlotWidget>(GetWidgetFromName(TEXT("ShieldSlot")));
 }
 
 void UEquipmentWidget::NativeDestruct()
@@ -81,10 +86,15 @@ void UEquipmentWidget::RefreshEquipment()
         }
     };
 
-    SetupSlot(CachedHeadSlot,   EEquipSlot::Head,   ESlotContext::Equipment);
-    SetupSlot(CachedBodySlot,   EEquipSlot::Body,   ESlotContext::Equipment);
-    SetupSlot(CachedWeaponSlot, EEquipSlot::Weapon, ESlotContext::Equipment);
-    SetupSlot(CachedShieldSlot, EEquipSlot::Shield, ESlotContext::Equipment);
+    SetupSlot(CachedHeadSlot,     EEquipSlot::Head,     ESlotContext::Equipment);
+    SetupSlot(CachedBodySlot,     EEquipSlot::Body,     ESlotContext::Equipment);
+    SetupSlot(CachedHandsSlot,    EEquipSlot::Hands,    ESlotContext::Equipment);
+    SetupSlot(CachedLegsSlot,     EEquipSlot::Legs,     ESlotContext::Equipment);
+    SetupSlot(CachedFeetSlot,     EEquipSlot::Feet,     ESlotContext::Equipment);
+    SetupSlot(CachedShoulderSlot, EEquipSlot::Shoulder, ESlotContext::Equipment);
+    SetupSlot(CachedArmsSlot,     EEquipSlot::Arms,     ESlotContext::Equipment);
+    SetupSlot(CachedWeaponSlot,   EEquipSlot::Weapon,   ESlotContext::Equipment);
+    SetupSlot(CachedShieldSlot,   EEquipSlot::Shield,   ESlotContext::Equipment);
 
     RefreshStats();
 }
@@ -115,14 +125,15 @@ void UEquipmentWidget::HandleEquipmentChanged()
     RefreshEquipment();
 }
 
-void UEquipmentWidget::HandleSlotDrop(int32 FromSlot, int32 ToSlot)
+void UEquipmentWidget::HandleSlotDrop(ESlotContext SourceContext, int32 FromSlot, int32 ToSlot)
 {
     ACharacter* Char = Cast<ACharacter>(GetOwningPlayerPawn());
     if (Char == nullptr)
     {
         return;
     }
-    UInventoryActionHelper::HandleDrop(ESlotContext::Equipment, ESlotContext::Inventory, FromSlot, ToSlot, Char);
+    // 드롭 대상이 장비 슬롯이므로 To=Equipment, From=드래그 시작 컨텍스트(인벤이면 장착)
+    UInventoryActionHelper::HandleDrop(SourceContext, ESlotContext::Equipment, FromSlot, ToSlot, Char);
 }
 
 void UEquipmentWidget::HandleSlotRightClicked(int32 SlotIndex)

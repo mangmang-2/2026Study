@@ -3,6 +3,8 @@
 #include "UI/Common/ItemDragDropOperation.h"
 #include "Components/TextBlock.h"
 #include "Components/ProgressBar.h"
+#include "Components/Image.h"
+#include "Blueprint/DragDropOperation.h"
 
 void UItemSlotWidget::NativeConstruct()
 {
@@ -12,6 +14,12 @@ void UItemSlotWidget::NativeConstruct()
 
 void UItemSlotWidget::SetItemData(const FItemData& Data, int32 InQuantity, int32 InEnhanceLevel)
 {
+    // NativeConstruct가 아직 안 돌았을 수 있으므로(동적 생성 슬롯) lazy 바인딩
+    if (CachedIconWidget == nullptr)
+    {
+        CachedIconWidget = Cast<UItemIconWidget>(GetWidgetFromName(TEXT("IconWidget")));
+    }
+
     CachedItemData    = Data;
     CachedQuantity    = InQuantity;
     CachedEnhanceLevel = InEnhanceLevel;
@@ -93,11 +101,27 @@ void UItemSlotWidget::NativeOnMouseLeave(const FPointerEvent& Event)
 
 void UItemSlotWidget::NativeOnDragDetected(const FGeometry& Geometry, const FPointerEvent& Event, UDragDropOperation*& OutOperation)
 {
-    if (!bHasItem) return;
+    if (bHasItem == false)
+    {
+        return;
+    }
 
     UItemDragDropOperation* Op = NewObject<UItemDragDropOperation>(this);
     Op->SourceContext   = SlotContext;
     Op->SourceSlotIndex = SlotIndex;
+
+    // 드래그 비주얼: 아이템 아이콘이 커서를 따라다님
+    UTexture2D* Tex = CachedItemData.Icon.IsNull() ? nullptr : CachedItemData.Icon.LoadSynchronous();
+    if (Tex != nullptr)
+    {
+        UImage* DragVis = NewObject<UImage>(this);
+        DragVis->SetBrushFromTexture(Tex);
+        DragVis->SetColorAndOpacity(FLinearColor(1.f, 1.f, 1.f, 0.85f));
+        DragVis->SetDesiredSizeOverride(FVector2D(56.f, 56.f));
+        Op->DefaultDragVisual = DragVis;
+        Op->Pivot = EDragPivot::CenterCenter;
+    }
+
     OutOperation = Op;
 }
 
@@ -106,6 +130,6 @@ bool UItemSlotWidget::NativeOnDrop(const FGeometry& Geometry, const FDragDropEve
     UItemDragDropOperation* Op = Cast<UItemDragDropOperation>(Operation);
     if (!Op) return false;
 
-    OnSlotDrop.Broadcast(Op->SourceSlotIndex, SlotIndex);
+    OnSlotDrop.Broadcast(Op->SourceContext, Op->SourceSlotIndex, SlotIndex);
     return true;
 }

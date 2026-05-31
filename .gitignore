@@ -18,3 +18,10 @@ Saved/
 .vs/
 *.user
 *.vsconfig
+
+# 대용량 임포트 에셋/플러그인 (git 외부 보관)
+/Content/SKnight_modular/
+/Plugins/
+
+# Python 바이트코드 캐시
+__pycache__/

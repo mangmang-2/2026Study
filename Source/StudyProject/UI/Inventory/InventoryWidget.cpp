@@ -8,6 +8,8 @@
 #include "Subsystem/ItemSubsystem.h"
 #include "Engine/GameInstance.h"
 #include "GameFramework/Character.h"
+#include "TimerManager.h"
+#include "Blueprint/WidgetLayoutLibrary.h"
 
 void UInventoryWidget::NativeConstruct()
 {
@@ -17,6 +19,10 @@ void UInventoryWidget::NativeConstruct()
 void UInventoryWidget::NativeDestruct()
 {
     Super::NativeDestruct();
+    if (UWorld* World = GetWorld())
+    {
+        World->GetTimerManager().ClearTimer(TooltipTimerHandle);
+    }
     if (BoundInventory.IsValid())
     {
         BoundInventory->OnInventoryChanged.RemoveDynamic(this, &UInventoryWidget::HandleInventoryChanged);
@@ -121,7 +127,13 @@ void UInventoryWidget::ShowTooltip(int32 SlotIndex)
     }
 
     Tooltip->SetItemData(*Data);
-    Tooltip->SetVisibility(ESlateVisibility::Visible);
+
+    // 커서 근처에 위치(뷰포트 스케일 보정), 살짝 우하단 오프셋
+    const float Scale = UWidgetLayoutLibrary::GetViewportScale(this);
+    FVector2D MousePos = UWidgetLayoutLibrary::GetMousePositionOnViewport(GetWorld());
+    Tooltip->SetPosition(MousePos + FVector2D(16.f, 16.f) / FMath::Max(Scale, 0.01f));
+
+    Tooltip->SetVisibility(ESlateVisibility::HitTestInvisible);
 }
 
 void UInventoryWidget::HideTooltip()
@@ -157,12 +169,34 @@ void UInventoryWidget::ShowContextMenu(int32 SlotIndex)
 
 void UInventoryWidget::HandleSlotHovered(int32 SlotIndex)
 {
+    UWorld* World = GetWorld();
+    if (World)
+    {
+        World->GetTimerManager().ClearTimer(TooltipTimerHandle);
+    }
+
     if (SlotIndex < 0)
     {
+        PendingTooltipSlot = -1;
         HideTooltip();
         return;
     }
-    ShowTooltip(SlotIndex);
+
+    // 같은 슬롯에 TooltipDelay초 머무르면 표시
+    PendingTooltipSlot = SlotIndex;
+    if (World)
+    {
+        World->GetTimerManager().SetTimer(
+            TooltipTimerHandle, this, &UInventoryWidget::ShowPendingTooltip, TooltipDelay, false);
+    }
+}
+
+void UInventoryWidget::ShowPendingTooltip()
+{
+    if (PendingTooltipSlot >= 0)
+    {
+        ShowTooltip(PendingTooltipSlot);
+    }
 }
 
 void UInventoryWidget::HandleSlotRightClicked(int32 SlotIndex)
@@ -170,14 +204,15 @@ void UInventoryWidget::HandleSlotRightClicked(int32 SlotIndex)
     ShowContextMenu(SlotIndex);
 }
 
-void UInventoryWidget::HandleSlotDrop(int32 FromSlot, int32 ToSlot)
+void UInventoryWidget::HandleSlotDrop(ESlotContext SourceContext, int32 FromSlot, int32 ToSlot)
 {
     ACharacter* Char = Cast<ACharacter>(GetOwningPlayerPawn());
     if (Char == nullptr)
     {
         return;
     }
-    UInventoryActionHelper::HandleDrop(Context, Context, FromSlot, ToSlot, Char);
+    // 드롭 대상이 인벤이므로 To=Inventory, From=드래그 시작 컨텍스트
+    UInventoryActionHelper::HandleDrop(SourceContext, Context, FromSlot, ToSlot, Char);
 }
 
 void UInventoryWidget::HandleInventoryChanged()

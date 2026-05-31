@@ -15,13 +15,23 @@ ACharacterBase::ACharacterBase()
     EnhanceComp   = CreateDefaultSubobject<UEnhanceComponent>  (TEXT("EnhanceComp"));
 
     // Modular Character 파츠 (메인 메시에 Leader Pose)
-    HeadMesh   = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("HeadMesh"));
-    BodyMesh   = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("BodyMesh"));
-    WeaponMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("WeaponMesh"));
-    ShieldMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("ShieldMesh"));
+    HeadMesh     = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("HeadMesh"));
+    BodyMesh     = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("BodyMesh"));
+    HandsMesh    = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("HandsMesh"));
+    LegsMesh     = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("LegsMesh"));
+    FeetMesh     = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("FeetMesh"));
+    ShoulderMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("ShoulderMesh"));
+    ArmsMesh     = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("ArmsMesh"));
+    WeaponMesh   = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("WeaponMesh"));
+    ShieldMesh   = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("ShieldMesh"));
 
     SetupModularMesh(HeadMesh);
     SetupModularMesh(BodyMesh);
+    SetupModularMesh(HandsMesh);
+    SetupModularMesh(LegsMesh);
+    SetupModularMesh(FeetMesh);
+    SetupModularMesh(ShoulderMesh);
+    SetupModularMesh(ArmsMesh);
     SetupModularMesh(WeaponMesh);
     SetupModularMesh(ShieldMesh);
 }
