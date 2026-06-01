@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
 #include "Inventory/TradeComponent.h"
+#include "Data/SlotContext.h"
 #include "TradeWidget.generated.h"
 
 class UScrollBox;
@@ -59,6 +60,9 @@ protected:
     virtual void NativeConstruct() override;
     virtual void NativeDestruct() override;
 
+    // 인벤 아이템을 거래창에 드롭 → 내 제안에 등록
+    virtual bool NativeOnDrop(const FGeometry& InGeometry, const FDragDropEvent& InDragDropEvent, UDragDropOperation* InOperation) override;
+
 private:
     TWeakObjectPtr<UTradeComponent> TradeComp;
 
@@ -66,4 +70,5 @@ private:
     UFUNCTION() void HandleCancel();
     UFUNCTION() void HandleTradeUpdated();
     UFUNCTION() void HandleTradeResult(bool bSuccess);
+    UFUNCTION() void HandleUnregisterClicked(int32 TradeSlotIndex);   // 내 제안 아이템 우클릭 → 해제
 };

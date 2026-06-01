@@ -3,6 +3,10 @@
 #include "Inventory/EquipmentComponent.h"
 #include "Inventory/EnhanceComponent.h"
 #include "Inventory/ShopComponent.h"
+#include "GAS/CombatAbilitySystemComponent.h"
+#include "GAS/CombatAttributeSet.h"
+#include "AbilitySystemComponent.h"
+#include "GameplayEffect.h"
 #include "Data/GameSaveData.h"
 #include "Kismet/GameplayStatics.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -15,6 +19,12 @@ ACharacterBase::ACharacterBase()
     EquipmentComp = CreateDefaultSubobject<UEquipmentComponent>(TEXT("EquipmentComp"));
     EnhanceComp   = CreateDefaultSubobject<UEnhanceComponent>  (TEXT("EnhanceComp"));
     ShopComp      = CreateDefaultSubobject<UShopComponent>     (TEXT("ShopComp"));
+
+    // GAS — ASC + AttributeSet (AttributeSet은 소유 액터의 서브오브젝트라 ASC에 자동 등록됨)
+    AbilitySystemComponent = CreateDefaultSubobject<UCombatAbilitySystemComponent>(TEXT("AbilitySystemComponent"));
+    AbilitySystemComponent->SetIsReplicated(true);
+    AbilitySystemComponent->SetReplicationMode(EGameplayEffectReplicationMode::Mixed);
+    AttributeSet = CreateDefaultSubobject<UCombatAttributeSet>(TEXT("AttributeSet"));
 
     // Modular Character 파츠 (메인 메시에 Leader Pose)
     HeadMesh     = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("HeadMesh"));
@@ -62,9 +72,62 @@ void ACharacterBase::OnRep_Gold()
     // UI 갱신 필요 시 BP에서 처리 (HUDWidget 골드 텍스트 등)
 }
 
+UAbilitySystemComponent* ACharacterBase::GetAbilitySystemComponent() const
+{
+    return AbilitySystemComponent;
+}
+
+void ACharacterBase::PossessedBy(AController* NewController)
+{
+    Super::PossessedBy(NewController);
+    // 서버: 컨트롤러 지정 시 ASC 액터 정보 + 기본 어빌리티/스탯 부여
+    InitAbilitySystem();
+}
+
+void ACharacterBase::InitAbilitySystem()
+{
+    if (AbilitySystemComponent == nullptr)
+    {
+        return;
+    }
+
+    // owner=this, avatar=this (Pawn 소유 ASC). 서버/클라 모두 호출 안전(내부에서 갱신).
+    AbilitySystemComponent->InitAbilityActorInfo(this, this);
+
+    if (!HasAuthority() || bAbilitiesGranted)
+    {
+        return;
+    }
+
+    // 스탯 초기화 GE 적용(있을 때)
+    if (DefaultAttributeEffect)
+    {
+        FGameplayEffectContextHandle Ctx = AbilitySystemComponent->MakeEffectContext();
+        Ctx.AddSourceObject(this);
+        FGameplayEffectSpecHandle Spec = AbilitySystemComponent->MakeOutgoingSpec(DefaultAttributeEffect, 1.f, Ctx);
+        if (Spec.IsValid())
+        {
+            AbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*Spec.Data.Get());
+        }
+    }
+
+    // 기본 어빌리티 부여
+    for (const TSubclassOf<UGameplayAbility>& AbilityClass : DefaultAbilities)
+    {
+        if (AbilityClass)
+        {
+            AbilitySystemComponent->GiveAbility(FGameplayAbilitySpec(AbilityClass, 1, INDEX_NONE, this));
+        }
+    }
+    bAbilitiesGranted = true;
+}
+
 void ACharacterBase::BeginPlay()
 {
     Super::BeginPlay();
+
+    // 클라이언트/스탠드얼론: 아바타 정보 초기화 (서버는 PossessedBy에서 처리됨)
+    InitAbilitySystem();
 
     if (HasAuthority())
     {

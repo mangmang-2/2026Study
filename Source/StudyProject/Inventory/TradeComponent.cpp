@@ -179,3 +179,4 @@ void UTradeComponent::Internal_ExecuteTrade()
 
 void UTradeComponent::OnRep_MyOffer()      { OnTradeUpdated.Broadcast(); }
 void UTradeComponent::OnRep_PartnerOffer() { OnTradeUpdated.Broadcast(); }
+void UTradeComponent::OnRep_PartnerActor() { OnTradeUpdated.Broadcast(); }

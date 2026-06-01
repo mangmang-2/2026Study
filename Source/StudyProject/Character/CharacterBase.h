@@ -2,6 +2,8 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include "AbilitySystemInterface.h"
+#include "GameplayAbilitySpec.h"
 #include "Data/ItemData.h"
 #include "CharacterBase.generated.h"
 
@@ -9,14 +11,25 @@ class UInventoryComponent;
 class UEquipmentComponent;
 class UEnhanceComponent;
 class UShopComponent;
+class UCombatAbilitySystemComponent;
+class UCombatAttributeSet;
+class UGameplayAbility;
+class UGameplayEffect;
 
 UCLASS()
-class STUDYPROJECT_API ACharacterBase : public ACharacter
+class STUDYPROJECT_API ACharacterBase : public ACharacter, public IAbilitySystemInterface
 {
     GENERATED_BODY()
 
 public:
     ACharacterBase();
+
+    // IAbilitySystemInterface
+    virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
+
+    UCombatAttributeSet* GetCombatAttributeSet() const { return AttributeSet; }
+
+    virtual void PossessedBy(AController* NewController) override;
 
     // 컴포넌트 접근자
     UFUNCTION(BlueprintCallable, Category = "Components")
@@ -76,6 +89,25 @@ public:
 protected:
     virtual void BeginPlay() override;
     virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
+    // ── GAS ──────────────────────────────────────────────────────────
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "GAS")
+    TObjectPtr<UCombatAbilitySystemComponent> AbilitySystemComponent;
+
+    UPROPERTY()
+    TObjectPtr<UCombatAttributeSet> AttributeSet;
+
+    // 서버에서 부여할 기본 어빌리티 (콤보/회피 등)
+    UPROPERTY(EditDefaultsOnly, Category = "GAS")
+    TArray<TSubclassOf<UGameplayAbility>> DefaultAbilities;
+
+    // 스탯 초기화용 GE (없으면 AttributeSet 기본값 사용)
+    UPROPERTY(EditDefaultsOnly, Category = "GAS")
+    TSubclassOf<UGameplayEffect> DefaultAttributeEffect;
+
+    // ASC ActorInfo 초기화 + (서버) 기본 어빌리티/스탯 부여
+    void InitAbilitySystem();
+    bool bAbilitiesGranted = false;
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
     TObjectPtr<UInventoryComponent> InventoryComp;

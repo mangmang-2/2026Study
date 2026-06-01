@@ -103,6 +103,10 @@ APlayerCharacter::APlayerCharacter()
         TEXT("/Game/UI/Shop/WBP_ShopScreenWidget"));
     if (ShopWBPFinder.Succeeded()) ShopScreenWidgetClass = ShopWBPFinder.Class;
 
+    static ConstructorHelpers::FClassFinder<UUserWidget> TradeWBPFinder(
+        TEXT("/Game/UI/Trade/WBP_TradeScreenWidget"));
+    if (TradeWBPFinder.Succeeded()) TradeScreenWidgetClass = TradeWBPFinder.Class;
+
     static ConstructorHelpers::FClassFinder<UUserWidget> PromptWBPFinder(
         TEXT("/Game/UI/Common/WBP_InteractionPrompt"));
     if (PromptWBPFinder.Succeeded()) InteractionPromptClass = PromptWBPFinder.Class;
@@ -139,6 +143,13 @@ void APlayerCharacter::BeginPlay()
     if (IsLocallyControlled())
     {
         InteractionDetector->OnFocusChanged.AddDynamic(this, &APlayerCharacter::OnFocusChanged);
+
+        // 거래 상태 변화 → 거래 화면 자동 열기/닫기
+        if (TradeComp)
+        {
+            TradeComp->OnTradeUpdated.AddDynamic(this, &APlayerCharacter::HandleTradeUpdated);
+            TradeComp->OnTradeResult.AddDynamic(this, &APlayerCharacter::HandleTradeResult);
+        }
     }
 }
 
@@ -494,6 +505,91 @@ void APlayerCharacter::CloseShop()
     if (bInventoryOpen == false && bPauseMenuOpen == false && bEnhanceOpen == false)
     {
         SwitchToGameInput();
+    }
+}
+
+// ── 거래 ─────────────────────────────────────────────────────────────
+void APlayerCharacter::OpenTradeScreen()
+{
+    if (bTradeOpen) return;
+    APlayerController* PC = Cast<APlayerController>(GetController());
+    if (PC == nullptr) return;
+
+    if (TradeScreenWidget == nullptr && TradeScreenWidgetClass)
+    {
+        TradeScreenWidget = CreateWidget<UUserWidget>(PC, TradeScreenWidgetClass);
+    }
+    if (TradeScreenWidget)
+    {
+        TradeScreenWidget->AddToViewport(8);
+        bTradeOpen = true;
+        SwitchToUIInput();
+    }
+}
+
+void APlayerCharacter::CloseTradeScreen()
+{
+    if (TradeScreenWidget)
+    {
+        TradeScreenWidget->RemoveFromParent();
+    }
+    bTradeOpen = false;
+    if (bInventoryOpen == false && bPauseMenuOpen == false && bEnhanceOpen == false && bShopOpen == false)
+    {
+        SwitchToGameInput();
+    }
+}
+
+void APlayerCharacter::HandleTradeUpdated()
+{
+    if (TradeComp == nullptr) return;
+
+    // 거래 시작(상대 지정) → 화면 열기, 거래 종료(상대 해제) → 화면 닫기
+    // (원격 클라이언트는 PartnerActor 복제(OnRep)로 이 경로를 탐)
+    if (TradeComp->IsTrading() && bTradeOpen == false)
+    {
+        OpenTradeScreen();
+    }
+    else if (TradeComp->IsTrading() == false && bTradeOpen)
+    {
+        CloseTradeScreen();
+    }
+}
+
+void APlayerCharacter::HandleTradeResult(bool /*bSuccess*/)
+{
+    // 거래 성사/취소 모두 화면 닫음
+    CloseTradeScreen();
+}
+
+void APlayerCharacter::DebugTradeNearest()
+{
+    if (TradeComp == nullptr) return;
+
+    APawn* Self = this;
+    APlayerCharacter* Nearest = nullptr;
+    float BestDistSq = TNumericLimits<float>::Max();
+
+    TArray<AActor*> Players;
+    UGameplayStatics::GetAllActorsOfClass(GetWorld(), APlayerCharacter::StaticClass(), Players);
+    for (AActor* A : Players)
+    {
+        if (A == Self) continue;
+        const float D = FVector::DistSquared(A->GetActorLocation(), GetActorLocation());
+        if (D < BestDistSq)
+        {
+            BestDistSq = D;
+            Nearest = Cast<APlayerCharacter>(A);
+        }
+    }
+
+    if (Nearest)
+    {
+        TradeComp->RequestTrade(Nearest);
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("[Trade] 거래할 다른 플레이어가 없습니다(2인 플레이 필요)."));
     }
 }
 

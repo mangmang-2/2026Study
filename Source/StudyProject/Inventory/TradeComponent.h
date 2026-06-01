@@ -79,7 +79,7 @@ protected:
     UPROPERTY(ReplicatedUsing = OnRep_PartnerOffer)
     FTradeOffer PartnerOffer;
 
-    UPROPERTY(Replicated)
+    UPROPERTY(ReplicatedUsing = OnRep_PartnerActor)
     TObjectPtr<AActor> PartnerActor = nullptr;
 
 private:
@@ -88,6 +88,9 @@ private:
 
     UFUNCTION()
     void OnRep_PartnerOffer();
+
+    UFUNCTION()
+    void OnRep_PartnerActor();
 
     UFUNCTION(Server, Reliable)
     void Server_RequestTrade(ACharacter* Target);

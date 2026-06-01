@@ -39,6 +39,10 @@ public:
     UFUNCTION(Exec)
     void DebugDropItem(int32 ItemID, int32 Quantity = 1);
 
+    // 콘솔 커맨드: 가장 가까운 다른 플레이어에게 거래 요청(2인 테스트용)
+    UFUNCTION(Exec)
+    void DebugTradeNearest();
+
 protected:
     // ── 카메라 ────────────────────────────────────────────────────────
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
@@ -121,6 +125,9 @@ protected:
     TSubclassOf<UUserWidget> ShopScreenWidgetClass;
 
     UPROPERTY(EditDefaultsOnly, Category = "UI")
+    TSubclassOf<UUserWidget> TradeScreenWidgetClass;
+
+    UPROPERTY(EditDefaultsOnly, Category = "UI")
     TSubclassOf<UUserWidget> InteractionPromptClass;   // 머리 위 F 프롬프트 (HUD-follow)
 
     // ── 컴포넌트 ─────────────────────────────────────────────────────
@@ -162,6 +169,10 @@ private:
     UFUNCTION() void CloseEnhance();
     void OpenShop(int32 ShopID);
     UFUNCTION() void CloseShop();
+    void OpenTradeScreen();
+    void CloseTradeScreen();
+    UFUNCTION() void HandleTradeUpdated();
+    UFUNCTION() void HandleTradeResult(bool bSuccess);
     void SwitchToUIInput();
     void SwitchToGameInput();
 
@@ -182,10 +193,14 @@ private:
     UPROPERTY()
     TObjectPtr<UUserWidget> ShopScreenWidget      = nullptr;
 
+    UPROPERTY()
+    TObjectPtr<UUserWidget> TradeScreenWidget     = nullptr;
+
     bool bInventoryOpen  = false;
     bool bPauseMenuOpen  = false;
     bool bEnhanceOpen    = false;
     bool bShopOpen       = false;
+    bool bTradeOpen      = false;
 
     UFUNCTION(Server, Reliable)
     void Server_DebugDropItem(int32 ItemID, int32 Quantity);

@@ -22,7 +22,10 @@ public class StudyProject : ModuleRules
 			"SlateCore",
 			"NetCore",
 			"CommonUI",
-			"CommonInput"
+			"CommonInput",
+			"GameplayAbilities",
+			"GameplayTags",
+			"GameplayTasks"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] { });
@@ -39,6 +42,7 @@ public class StudyProject : ModuleRules
 			"StudyProject",
 			"StudyProject/Data",
 			"StudyProject/Subsystem",
+			"StudyProject/GAS",
 			"StudyProject/Character",
 			"StudyProject/Inventory",
 			"StudyProject/Item",

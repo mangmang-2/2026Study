@@ -1,5 +1,6 @@
 #include "TradeWidget.h"
 #include "UI/Common/ItemSlotWidget.h"
+#include "UI/Common/ItemDragDropOperation.h"
 #include "Subsystem/ItemSubsystem.h"
 #include "Engine/GameInstance.h"
 #include "Components/ScrollBox.h"
@@ -89,6 +90,8 @@ void UTradeWidget::RefreshTrade()
                 W->SetItemData(*Data, MySlots[i].Quantity, 0);
             }
 
+            // 내 제안 아이템 우클릭 → 거래에서 내림
+            W->OnSlotRightClicked.AddDynamic(this, &UTradeWidget::HandleUnregisterClicked);
             MyOfferList->AddChild(W);
         }
     }
@@ -183,6 +186,28 @@ void UTradeWidget::HandleCancel()
     {
         TradeComp->CancelTrade();
     }
+}
+
+void UTradeWidget::HandleUnregisterClicked(int32 TradeSlotIndex)
+{
+    if (TradeComp.IsValid())
+    {
+        TradeComp->UnregisterItem(TradeSlotIndex);
+    }
+}
+
+bool UTradeWidget::NativeOnDrop(const FGeometry& InGeometry, const FDragDropEvent& InDragDropEvent, UDragDropOperation* InOperation)
+{
+    // 인벤 아이템을 거래창에 드롭 → 내 제안에 등록(1개)
+    if (UItemDragDropOperation* Op = Cast<UItemDragDropOperation>(InOperation))
+    {
+        if (Op->SourceContext == ESlotContext::Inventory && TradeComp.IsValid())
+        {
+            TradeComp->RegisterItem(Op->SourceSlotIndex, 1);
+            return true;
+        }
+    }
+    return Super::NativeOnDrop(InGeometry, InDragDropEvent, InOperation);
 }
 
 void UTradeWidget::HandleTradeUpdated()
