@@ -13,11 +13,16 @@ UGA_AirLaunch::UGA_AirLaunch()
     // 공중 콤보가 Event.Launched를 다시 쏘면(저글) 이미 떠 있어도 재발동되게
     bRetriggerInstancedAbility = true;
 
-    // Event.Launched 수신 시 자동 활성화
+    // Event.Launched(저글) / Event.Slammed(마무리 내려찍기) 수신 시 자동 활성화
     FAbilityTriggerData Trigger;
     Trigger.TriggerTag = StudyTags::Event_Launched;
     Trigger.TriggerSource = EGameplayAbilityTriggerSource::GameplayEvent;
     AbilityTriggers.Add(Trigger);
+
+    FAbilityTriggerData SlamTrigger;
+    SlamTrigger.TriggerTag = StudyTags::Event_Slammed;
+    SlamTrigger.TriggerSource = EGameplayAbilityTriggerSource::GameplayEvent;
+    AbilityTriggers.Add(SlamTrigger);
 
     FGameplayTagContainer Tags;
     Tags.AddTag(StudyTags::State_AirBorne);
@@ -45,14 +50,41 @@ void UGA_AirLaunch::ActivateAbility(
 
     bGetUpStarted = false;   // 이번 활성화의 기상 가드 초기화
 
-    float LaunchZ = DefaultLaunchZ;
-    if (TriggerEventData != nullptr && TriggerEventData->EventMagnitude > 0.f)
+    const bool bSlam = (TriggerEventData != nullptr) && (TriggerEventData->EventTag == StudyTags::Event_Slammed);
+    const float Mag = (TriggerEventData != nullptr) ? TriggerEventData->EventMagnitude : 0.f;
+
+    // 착지 콜백 등록(슬램/런치 공통 — 착지 시 넉다운→기상)
+    Char->LandedDelegate.AddDynamic(this, &UGA_AirLaunch::OnLanded);
+
+    if (bSlam)
     {
-        LaunchZ = TriggerEventData->EventMagnitude;
+        // ── 공중콤보 마무리: 바닥으로 내려찍기 ──────────────────────────
+        const float Down = (Mag > 0.f) ? Mag : SlamDownSpeed;
+        if (UCharacterMovementComponent* Move = Char->GetCharacterMovement())
+        {
+            if (bGravityActive == false)
+            {
+                SavedGravityScale = Move->GravityScale;
+                bGravityActive = true;
+            }
+            Move->GravityScale = SlamGravityScale;   // 빠르게 내리꽂힘
+        }
+        Char->LaunchCharacter(FVector(0.f, 0.f, -Down), true, true);
+
+        UAnimMontage* SlamM = (SlamMontage != nullptr) ? SlamMontage : AirHitMontage;
+        if (SlamM != nullptr)
+        {
+            if (UAbilityTask_PlayMontageAndWait* Task =
+                UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(this, NAME_None, SlamM, 1.0f))
+            {
+                Task->ReadyForActivation();
+            }
+        }
+        return;   // 상승/체공 로직 건너뜀
     }
 
-    // 착지 콜백 등록 후 위로 발사 (상승은 정상 중력, 정점부터 체공 중력)
-    Char->LandedDelegate.AddDynamic(this, &UGA_AirLaunch::OnLanded);
+    // ── 일반 런치/저글: 위로 발사(상승은 정상 중력, 정점부터 체공 중력) ──
+    float LaunchZ = (Mag > 0.f) ? Mag : DefaultLaunchZ;
     ApplyLaunchGravity();
     Char->LaunchCharacter(FVector(0.f, 0.f, LaunchZ), true, true);
 

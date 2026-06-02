@@ -11,6 +11,11 @@ UGA_AirCombo::UGA_AirCombo()
     HitEventTag = StudyTags::Event_Launched;
     HitEventMagnitude = 50.f;
 
+    // 마지막 타는 바닥으로 내려찍기(Event.Slammed → 적의 GA_AirLaunch 슬램 분기).
+    // 매그니튜드 0이면 적 GA의 SlamDownSpeed 기본값 사용.
+    LastHitEventTag = StudyTags::Event_Slammed;
+    LastHitEventMagnitude = 0.f;
+
     // 플레이어 자신도 공중 타격 성공 시 체공(콤보 도중 빨리 떨어지는 문제 해결)
     bFloatSelfOnHit = true;
 

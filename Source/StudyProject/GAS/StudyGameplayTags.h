@@ -38,7 +38,10 @@ namespace StudyTags
     STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Death);
     STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_ComboWindowOpen);
     STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Melee_Hit);
+    STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Melee_HitStart);  // 노티파이: 타격 윈도우 시작
+    STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Melee_HitEnd);    // 노티파이: 타격 윈도우 끝
     STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Launched);
+    STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Slammed);   // 공중콤보 마무리: 적을 바닥으로 내려찍기
     STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Executed);
 
     // Input.* (Enhanced Input → GA 활성화 라우팅)

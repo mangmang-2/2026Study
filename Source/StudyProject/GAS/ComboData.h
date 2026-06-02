@@ -39,6 +39,36 @@ struct STUDYPROJECT_API FHitFeel
 };
 
 /**
+ * 콤보 스텝인(전진키+타겟 방향으로 다가가기) 파라미터.
+ * 콤보 몽타주가 제자리(root lock)라 애님 루트모션 대신 코드로 타겟에 접근한다.
+ */
+USTRUCT(BlueprintType)
+struct STUDYPROJECT_API FComboStepIn
+{
+    GENERATED_BODY()
+
+    // 스텝인 사용 여부
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "StepIn")
+    bool bEnable = true;
+
+    // 이 거리 안의 타겟에만 스텝인(너무 먼 적까지 끌려가지 않게)
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "StepIn")
+    float MaxRange = 450.f;
+
+    // 타겟에서 이 거리까지 접근(작을수록 더 바짝 붙음)
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "StepIn")
+    float StopDistance = 90.f;
+
+    // 한 타당 접근에 걸리는 시간
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "StepIn")
+    float Duration = 0.12f;
+
+    // 한 타에서 좁힐 수 있는 최대 거리(넉백으로 밀린 적을 쫓아가려면 크게)
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "StepIn")
+    float MaxStep = 350.f;
+};
+
+/**
  * 무기별 콤보 데이터(DataTable 행). 행 키 = 무기 ItemID(문자열) 또는 "Default".
  */
 USTRUCT(BlueprintType)
@@ -82,6 +112,10 @@ struct STUDYPROJECT_API FWeaponComboData : public FTableRowBase
     // 타격감 파라미터(히트스톱/셰이크/넉백/히트이펙트)
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combo")
     FHitFeel HitFeel;
+
+    // 콤보 스텝인(전진키로 타겟에 다가가기) 파라미터
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combo")
+    FComboStepIn StepIn;
 };
 
 UCLASS()

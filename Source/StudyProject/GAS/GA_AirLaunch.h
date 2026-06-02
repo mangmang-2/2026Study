@@ -45,6 +45,18 @@ protected:
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Combat")
     TObjectPtr<UAnimMontage> GetUpMontage = nullptr;
 
+    // 공중콤보 마무리(Event.Slammed) 시 적이 바닥으로 내려찍히며 재생할 몽타주
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Combat|Slam")
+    TObjectPtr<UAnimMontage> SlamMontage = nullptr;
+
+    // 슬램 하강 속도(아래로 발사). 이벤트 매그니튜드가 오면 그 값 사용.
+    UPROPERTY(EditDefaultsOnly, Category = "Combat|Slam")
+    float SlamDownSpeed = 1200.f;
+
+    // 슬램 중 중력(빠르게 내리꽂히게 크게)
+    UPROPERTY(EditDefaultsOnly, Category = "Combat|Slam")
+    float SlamGravityScale = 3.0f;
+
     // 이벤트에서 매그니튜드가 안 오면 사용할 기본 상승 속도
     UPROPERTY(EditDefaultsOnly, Category = "Combat")
     float DefaultLaunchZ = 700.f;

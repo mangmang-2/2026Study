@@ -14,6 +14,7 @@
 #include "GameFramework/PlayerController.h"
 #include "Camera/CameraShakeBase.h"
 #include "TimerManager.h"
+#include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
 
 UCombatGameplayAbility::UCombatGameplayAbility()
 {
@@ -33,7 +34,8 @@ void UCombatGameplayAbility::OnAvatarSet(const FGameplayAbilityActorInfo* ActorI
     }
 }
 
-bool UCombatGameplayAbility::ApplyMeleeDamage(float DamageAmount, FGameplayTag EventOnHit, float EventMagnitude, const FHitFeel& Feel)
+bool UCombatGameplayAbility::ApplyMeleeDamage(float DamageAmount, FGameplayTag EventOnHit, float EventMagnitude, const FHitFeel& Feel,
+    TSet<TWeakObjectPtr<AActor>>* AlreadyHit)
 {
     if (DamageGEClass == nullptr)
     {
@@ -74,6 +76,12 @@ bool UCombatGameplayAbility::ApplyMeleeDamage(float DamageAmount, FGameplayTag E
             continue;
         }
         Done.Add(Target);
+
+        // 한 스윙(여러 프레임) 동안 같은 대상 중복 타격 방지
+        if (AlreadyHit != nullptr && AlreadyHit->Contains(Target))
+        {
+            continue;
+        }
 
         UAbilitySystemComponent* TargetASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(Target);
         if (TargetASC == nullptr)
@@ -129,6 +137,11 @@ bool UCombatGameplayAbility::ApplyMeleeDamage(float DamageAmount, FGameplayTag E
             StoppedActors.Add(Target);
         }
 
+        if (AlreadyHit != nullptr)
+        {
+            AlreadyHit->Add(Target);
+        }
+
         bHitAny = true;
     }
 
@@ -171,4 +184,57 @@ bool UCombatGameplayAbility::ApplyMeleeDamage(float DamageAmount, FGameplayTag E
     }
 
     return bHitAny;
+}
+
+// ── 노티파이 기반 타격 윈도우 ────────────────────────────────────────────────
+
+void UCombatGameplayAbility::StartMeleeHitWindowListeners()
+{
+    // HitStart/HitEnd 이벤트를 어빌리티가 끝날 때까지 계속 수신(여러 타 콤보 전부 커버)
+    if (UAbilityTask_WaitGameplayEvent* StartTask =
+        UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(this, StudyTags::Event_Melee_HitStart, nullptr, /*OnlyTriggerOnce=*/false))
+    {
+        StartTask->EventReceived.AddDynamic(this, &UCombatGameplayAbility::OnMeleeHitStartEvent);
+        StartTask->ReadyForActivation();
+    }
+    if (UAbilityTask_WaitGameplayEvent* EndTask =
+        UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(this, StudyTags::Event_Melee_HitEnd, nullptr, /*OnlyTriggerOnce=*/false))
+    {
+        EndTask->EventReceived.AddDynamic(this, &UCombatGameplayAbility::OnMeleeHitEndEvent);
+        EndTask->ReadyForActivation();
+    }
+}
+
+void UCombatGameplayAbility::OnMeleeHitStartEvent(FGameplayEventData /*Payload*/)
+{
+    // 새 스윙 시작 — 중복방지 셋 초기화 후 윈도우 동안 매 프레임 트레이스
+    MeleeSwingHitActors.Reset();
+    if (UWorld* World = GetWorld())
+    {
+        World->GetTimerManager().SetTimer(
+            MeleeWindowTimer, this, &UCombatGameplayAbility::MeleeWindowTick, 0.016f, true);
+        MeleeWindowTick();   // 같은 프레임에 즉시 1회 판정(시작 지연 없이)
+    }
+}
+
+void UCombatGameplayAbility::OnMeleeHitEndEvent(FGameplayEventData /*Payload*/)
+{
+    StopMeleeHitWindow();
+}
+
+void UCombatGameplayAbility::MeleeWindowTick()
+{
+    const bool bNewHit = ApplyMeleeDamage(MeleeDamage, MeleeHitEventTag, MeleeHitEventMagnitude, MeleeHitFeel, &MeleeSwingHitActors);
+    if (bNewHit)
+    {
+        OnMeleeHitLanded();
+    }
+}
+
+void UCombatGameplayAbility::StopMeleeHitWindow()
+{
+    if (UWorld* World = GetWorld())
+    {
+        World->GetTimerManager().ClearTimer(MeleeWindowTimer);
+    }
 }

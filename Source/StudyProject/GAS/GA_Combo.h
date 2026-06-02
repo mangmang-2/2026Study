@@ -60,6 +60,13 @@ protected:
     UPROPERTY(EditDefaultsOnly, Category = "Combat|Damage")
     float HitEventMagnitude = 0.f;
 
+    // 마지막 타에서만 보낼 이벤트(공중 콤보 마무리=Event.Slammed로 바닥에 내려찍기). 비우면 일반 타와 동일.
+    UPROPERTY(EditDefaultsOnly, Category = "Combat|Damage")
+    FGameplayTag LastHitEventTag;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Combat|Damage")
+    float LastHitEventMagnitude = 0.f;
+
     // ── 공중 콤보 자기 체공 ─────────────────────────────────────────────
     // 공중 타격 성공 시 플레이어 자신도 중력을 낮추고 살짝 다시 떠서 콤보 도중 안 떨어지게.
     UPROPERTY(EditDefaultsOnly, Category = "Combat|AirFloat")
@@ -89,37 +96,17 @@ protected:
     UFUNCTION()
     void OnComboInterrupted();
 
-    UFUNCTION()
-    void DoMeleeTrace();
+    // 노티파이 타격 윈도우에서 새 적이 맞은 프레임 훅(공중 콤보 자기 체공 처리)
+    virtual void OnMeleeHitLanded() override;
 
     // 공중 콤보 자기 체공 — 착지 시 중력 복원
     UFUNCTION()
     void OnSelfLanded(const FHitResult& Hit);
 
-    // ── 스텝인(전진키+타겟 방향으로 조금씩 접근) ────────────────────────
-    // 콤보 몽타주가 제자리(root lock)라 애님 루트모션 대신 코드로 타겟에 다가간다.
-    UPROPERTY(EditDefaultsOnly, Category = "Combat|StepIn")
-    bool bEnableStepIn = true;
-
-    // 이 거리 안의 타겟에만 스텝인(너무 먼 적까지 끌려가지 않게)
-    UPROPERTY(EditDefaultsOnly, Category = "Combat|StepIn")
-    float StepInMaxRange = 450.f;
-
-    // 타겟에서 이 거리까지만 접근(붙어서 겹치지 않게)
-    UPROPERTY(EditDefaultsOnly, Category = "Combat|StepIn")
-    float StepInStopDistance = 150.f;
-
-    // 한 타당 접근에 걸리는 시간
-    UPROPERTY(EditDefaultsOnly, Category = "Combat|StepIn")
-    float StepInDuration = 0.12f;
-
-    // 전진키로 인정할 전후 입력 임계값(Move 입력 Y)
+    // 스텝인 세부 파라미터(MaxRange/StopDistance/Duration/MaxStep)는 DT_ComboData.StepIn으로 이동.
+    // 전진키로 인정할 전후 입력 임계값(Move 입력 Y)만 어빌리티에 유지(입력 감도 — 무기 무관).
     UPROPERTY(EditDefaultsOnly, Category = "Combat|StepIn")
     float StepInForwardThreshold = 0.3f;
-
-    // 한 타에서 좁힐 수 있는 최대 거리(살짝씩만 — "조금씩 앞으로")
-    UPROPERTY(EditDefaultsOnly, Category = "Combat|StepIn")
-    float StepInMaxStep = 220.f;
 
 private:
     // 현재 인덱스의 콤보 몽타주를 재생하고 히트 판정/캔슬 윈도우 타이머를 건다
@@ -162,7 +149,8 @@ private:
     // 이번 활성화의 공격 몽타주 재생 속도(데이터에서 캐시)
     float CurrentPlayRate = 1.0f;
 
-    // 스텝인 보간 상태
+    // 스텝인 보간 상태 + 이번 활성화의 스텝인 파라미터(DT에서 캐시)
+    FComboStepIn CurrentStepIn;
     FTimerHandle StepInTimerHandle;
     FVector StepInStartLoc = FVector::ZeroVector;
     FVector StepInEndLoc = FVector::ZeroVector;

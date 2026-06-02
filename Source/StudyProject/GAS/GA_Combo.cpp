@@ -57,6 +57,16 @@ void UGA_Combo::ActivateAbility(
     CurrentHitFeel = ComboData.HitFeel;
     CurrentPlayRate = (ComboData.AttackPlayRate > 0.f) ? ComboData.AttackPlayRate : 1.0f;
 
+    // 노티파이 기반 타격 윈도우용 파라미터 + 리스너(몽타주의 Melee Hit 노티파이가 판정 시점을 결정)
+    MeleeDamage = ComboData.DamagePerHit;
+    MeleeHitFeel = ComboData.HitFeel;
+    MeleeHitEventTag = HitEventTag;
+    MeleeHitEventMagnitude = HitEventMagnitude;
+    StartMeleeHitWindowListeners();
+
+    // 스텝인 파라미터는 무기 데이터에서 가져옴(DT_ComboData.StepIn)
+    CurrentStepIn = ComboData.StepIn;
+
     // 새 콤보 시작 — 1타부터
     ComboIndex = 0;
     bInputBuffered = false;
@@ -99,6 +109,19 @@ void UGA_Combo::PlayComboMontage()
     bWindowOpen = false;
     bChained = false;
 
+    // 이 타에서 적에게 보낼 이벤트 선택: 마지막 타면 LastHit(슬램), 아니면 일반(저글/없음)
+    const bool bLastHit = (ComboIndex == CurrentMontages.Num() - 1);
+    if (bLastHit && LastHitEventTag.IsValid())
+    {
+        MeleeHitEventTag = LastHitEventTag;
+        MeleeHitEventMagnitude = LastHitEventMagnitude;
+    }
+    else
+    {
+        MeleeHitEventTag = HitEventTag;
+        MeleeHitEventMagnitude = HitEventMagnitude;
+    }
+
     UAbilityTask_PlayMontageAndWait* MontageTask =
         UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(
             this, NAME_None, Montage, CurrentPlayRate, NAME_None, false);
@@ -126,14 +149,9 @@ void UGA_Combo::PlayComboMontage()
     // 전진키를 누르고 있고 타겟이 앞에 있으면 이 타에서 타겟 쪽으로 조금 접근
     TryStepInToTarget();
 
-    // 이 타의 히트 판정 지연 타이머(재생 속도 보정)
+    // 히트 판정은 몽타주의 "Melee Hit" 노티파이가 결정(타이머 트레이스 제거).
+    // 캔슬 윈도우 하한용으로만 사용할 기준 시간.
     const float ScaledHitDelay = HitDelay * RateScale;
-    UAbilityTask_WaitDelay* DelayTask = UAbilityTask_WaitDelay::WaitDelay(this, ScaledHitDelay);
-    if (DelayTask != nullptr)
-    {
-        DelayTask->OnFinish.AddDynamic(this, &UGA_Combo::DoMeleeTrace);
-        DelayTask->ReadyForActivation();
-    }
 
     // 캔슬 윈도우가 열리는 시점(몽타주 실제 재생 길이 * 비율). 히트 판정보다는 뒤에 열리도록 보정.
     const float Length = Montage->GetPlayLength() * RateScale;
@@ -151,13 +169,10 @@ void UGA_Combo::PlayComboMontage()
     }
 }
 
-void UGA_Combo::DoMeleeTrace()
+void UGA_Combo::OnMeleeHitLanded()
 {
-    // 공중 콤보는 HitEventTag=Event.Launched + 작은 매그니튜드로 적을 다시 띄워(저글) 중력 낮게 유지
-    const bool bHit = ApplyMeleeDamage(CurrentDamage, HitEventTag, HitEventMagnitude, CurrentHitFeel);
-
-    // 공중 콤보: 적중하면 플레이어 자신도 체공(중력↓ + 살짝 재상승)해서 콤보 도중 안 떨어지게
-    if (bHit && bFloatSelfOnHit)
+    // 노티파이 윈도우에서 새 적이 맞은 프레임 — 공중 콤보면 플레이어 자신도 체공
+    if (bFloatSelfOnHit)
     {
         ApplySelfFloat();
     }
@@ -280,6 +295,7 @@ void UGA_Combo::EndAbility(
     bool bWasCancelled)
 {
     StopStepIn();
+    StopMeleeHitWindow();   // 타격 윈도우 타이머 정리
     RestoreSelfGravity();   // 콤보 끝나면 자기 체공 해제(공중이면 다시 정상 낙하)
     Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }
@@ -295,7 +311,7 @@ AActor* UGA_Combo::FindStepInTarget(const FVector& SelfLoc, const FVector& Forwa
     }
 
     AActor* Best = nullptr;
-    float BestDistSq = StepInMaxRange * StepInMaxRange;
+    float BestDistSq = CurrentStepIn.MaxRange * CurrentStepIn.MaxRange;
 
     TArray<AActor*> Enemies;
     UGameplayStatics::GetAllActorsOfClass(World, AEnemyCharacter::StaticClass(), Enemies);
@@ -325,7 +341,7 @@ AActor* UGA_Combo::FindStepInTarget(const FVector& SelfLoc, const FVector& Forwa
 
 void UGA_Combo::TryStepInToTarget()
 {
-    if (bEnableStepIn == false)
+    if (CurrentStepIn.bEnable == false)
     {
         return;
     }
@@ -374,14 +390,14 @@ void UGA_Combo::TryStepInToTarget()
     FVector ToTarget = TargetActor->GetActorLocation() - SelfLoc;
     ToTarget.Z = 0.f;
     const float Dist = ToTarget.Size();
-    if (Dist <= StepInStopDistance + 1.f)
+    if (Dist <= CurrentStepIn.StopDistance + 1.f)
     {
         return;   // 이미 충분히 가까움
     }
 
     const FVector Dir = ToTarget / Dist;
-    float MoveDist = Dist - StepInStopDistance;       // 붙어서기 직전까지
-    MoveDist = FMath::Min(MoveDist, StepInMaxStep);   // 한 타에 너무 많이 끌려가지 않게
+    float MoveDist = Dist - CurrentStepIn.StopDistance;   // 붙어서기 직전까지
+    MoveDist = FMath::Min(MoveDist, CurrentStepIn.MaxStep);   // 한 타에 좁힐 수 있는 최대
 
     StepInStartLoc = SelfLoc;
     StepInEndLoc = SelfLoc + Dir * MoveDist;
@@ -392,21 +408,23 @@ void UGA_Combo::TryStepInToTarget()
         World->GetTimerManager().SetTimer(
             StepInTimerHandle, this, &UGA_Combo::StepInTick, 0.016f, true);
     }
+    // 타이머 첫 발화(16ms 뒤)를 기다리지 않고 같은 프레임에 바로 이동 시작 → 모션과 동시에 전진
+    StepInTick();
 }
 
 void UGA_Combo::StepInTick()
 {
     ACharacter* Char = Cast<ACharacter>(GetAvatarActorFromActorInfo());
-    if (Char == nullptr || StepInDuration <= 0.f)
+    if (Char == nullptr || CurrentStepIn.Duration <= 0.f)
     {
         StopStepIn();
         return;
     }
 
     StepInElapsed += 0.016f;
-    const float Alpha = FMath::Clamp(StepInElapsed / StepInDuration, 0.f, 1.f);
-    // 부드러운 감속(ease-out)
-    const float Smooth = 1.f - FMath::Square(1.f - Alpha);
+    const float Alpha = FMath::Clamp(StepInElapsed / CurrentStepIn.Duration, 0.f, 1.f);
+    // 시작에서 강하게 치고 나가고 끝에서 감속(cubic ease-out) — 모션 시작과 동시에 전진감
+    const float Smooth = 1.f - FMath::Pow(1.f - Alpha, 3.f);
 
     FVector NewLoc = FMath::Lerp(StepInStartLoc, StepInEndLoc, Smooth);
     NewLoc.Z = Char->GetActorLocation().Z;   // 수직은 그대로(지면 따라감)
