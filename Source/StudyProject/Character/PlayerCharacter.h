@@ -13,6 +13,7 @@ class UTradeComponent;
 class UHUDWidget;
 class UInteractionDetectorComponent;
 class UDialogueWidget;
+class ULockOnComponent;
 
 UCLASS()
 class STUDYPROJECT_API APlayerCharacter : public ACharacterBase
@@ -24,6 +25,13 @@ public:
 
     UFUNCTION(BlueprintCallable, Category = "Components")
     UTradeComponent* GetTradeComponent() const { return TradeComp; }
+
+    UFUNCTION(BlueprintCallable, Category = "Components")
+    ULockOnComponent* GetLockOnComponent() const { return LockOnComp; }
+
+    // 이동 입력 원본값(X=좌우, Y=전후). 이동이 잠긴 콤보 중에도 갱신됨(키 눌림 감지용).
+    UFUNCTION(BlueprintCallable, Category = "Input")
+    FVector2D GetMoveInput() const { return LastMoveInput; }
 
     UFUNCTION(BlueprintCallable, Category = "UI")
     UHUDWidget* GetHUDWidget() const { return HUDWidget; }
@@ -109,6 +117,10 @@ protected:
     UPROPERTY(EditDefaultsOnly, Category = "UI")
     TSubclassOf<UHUDWidget> HUDWidgetClass;
 
+    // SP/HP 바 위젯(WBP_SPBar). BeginPlay에서 뷰포트에 추가
+    UPROPERTY(EditDefaultsOnly, Category = "UI")
+    TSubclassOf<UUserWidget> SPBarWidgetClass;
+
     UPROPERTY(EditDefaultsOnly, Category = "UI")
     TSubclassOf<UUserWidget> InventoryScreenWidgetClass;
 
@@ -137,9 +149,15 @@ protected:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
     TObjectPtr<UInteractionDetectorComponent> InteractionDetector;
 
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+    TObjectPtr<ULockOnComponent> LockOnComp;
+
     // ── 상태 ─────────────────────────────────────────────────────────
     UPROPERTY(BlueprintReadOnly, Category = "State")
     bool bIsSprinting = false;
+
+    // 마지막 이동 입력값(콤보 스텝인 등에서 전진키 눌림 판정용)
+    FVector2D LastMoveInput = FVector2D::ZeroVector;
 
     virtual void BeginPlay() override;
     virtual void Tick(float DeltaSeconds) override;
@@ -149,6 +167,7 @@ protected:
 private:
     // 입력 핸들러
     void HandleMove(const FInputActionValue& Value);
+    void HandleMoveCompleted(const FInputActionValue& Value);
     void HandleLook(const FInputActionValue& Value);
     void HandleJump();
     void HandleStopJump();
@@ -159,6 +178,14 @@ private:
     void HandleSprintEnd();
     void HandleUsePotion();
     void HandleEnhance();
+
+    // GAS 어빌리티 입력 — 입력 태그(Input.*)로 매칭되는 GA 활성화
+    void HandleAttack();   // 지상/공중 자동 분기
+    void HandleLauncher(); // 공중 띄우기
+    void HandleFinisher(); // 처형
+    void HandleDodge();
+    void HandleLockOn();   // 록온 토글
+    void HandleLockOnSwitch(const FInputActionValue& Value); // 타겟 좌우 전환
 
     // UI 열기/닫기
     void OpenInventory();
@@ -176,8 +203,10 @@ private:
     void SwitchToUIInput();
     void SwitchToGameInput();
 
-    UPROPERTY() 
+    UPROPERTY()
     TObjectPtr<UHUDWidget> HUDWidget             = nullptr;
+    UPROPERTY()
+    TObjectPtr<UUserWidget> SPBarWidget          = nullptr;
     UPROPERTY() 
     TObjectPtr<UUserWidget> InventoryScreenWidget = nullptr;
 

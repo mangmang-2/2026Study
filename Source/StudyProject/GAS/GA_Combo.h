@@ -1,0 +1,177 @@
+#pragma once
+
+#include "CoreMinimal.h"
+#include "CombatGameplayAbility.h"
+#include "ComboData.h"
+#include "GA_Combo.generated.h"
+
+class UAnimMontage;
+class UDataTable;
+
+/**
+ * 지상 콤보 어빌리티 — 데이터 기반(무기별 DataTable).
+ * Input.Attack로 활성화. 한 번의 활성화 동안 콤보 전체를 관리한다.
+ * 공격 중 같은 입력이 다시 들어오면(ASC가 NotifyComboInput 호출) 다음 타를 버퍼에 예약하고,
+ * 현재 몽타주가 끝나며 블렌드아웃되는 시점에 idle로 돌아가지 않고 바로 다음 타로 크로스블렌드한다.
+ * 버퍼된 입력이 없으면 콤보를 종료한다.
+ * (공중 콤보는 이 클래스를 상속해 SelectCombo만 오버라이드)
+ */
+UCLASS()
+class STUDYPROJECT_API UGA_Combo : public UCombatGameplayAbility
+{
+    GENERATED_BODY()
+
+public:
+    UGA_Combo();
+
+    virtual void ActivateAbility(
+        const FGameplayAbilitySpecHandle Handle,
+        const FGameplayAbilityActorInfo* ActorInfo,
+        const FGameplayAbilityActivationInfo ActivationInfo,
+        const FGameplayEventData* TriggerEventData) override;
+
+    virtual void EndAbility(
+        const FGameplayAbilitySpecHandle Handle,
+        const FGameplayAbilityActorInfo* ActorInfo,
+        const FGameplayAbilityActivationInfo ActivationInfo,
+        bool bReplicateEndAbility,
+        bool bWasCancelled) override;
+
+    // 이미 활성 중인 콤보에 같은 입력이 다시 들어왔을 때 ASC가 호출 — 다음 타를 예약
+    void NotifyComboInput();
+
+protected:
+    // 무기별 콤보 데이터 테이블 (행 키 = 무기 ItemID / Default)
+    UPROPERTY(EditDefaultsOnly, Category = "Combat")
+    TObjectPtr<UDataTable> ComboDataTable;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Combat")
+    FName DefaultComboRow = TEXT("Default");
+
+    // 몽타주 시작 후 히트 판정까지 지연
+    UPROPERTY(EditDefaultsOnly, Category = "Combat|Damage")
+    float HitDelay = 0.25f;
+
+    // 타격 시 대상에게 보낼 이벤트(공중 콤보는 Event.Launched로 저글). 비우면 이벤트 없음.
+    UPROPERTY(EditDefaultsOnly, Category = "Combat|Damage")
+    FGameplayTag HitEventTag;
+
+    // 위 이벤트의 매그니튜드(공중 콤보=재상승 속도). 적의 AirLaunch가 이 값으로 다시 띄움.
+    UPROPERTY(EditDefaultsOnly, Category = "Combat|Damage")
+    float HitEventMagnitude = 0.f;
+
+    // ── 공중 콤보 자기 체공 ─────────────────────────────────────────────
+    // 공중 타격 성공 시 플레이어 자신도 중력을 낮추고 살짝 다시 떠서 콤보 도중 안 떨어지게.
+    UPROPERTY(EditDefaultsOnly, Category = "Combat|AirFloat")
+    bool bFloatSelfOnHit = false;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Combat|AirFloat")
+    float SelfHangGravityScale = 0.35f;
+
+    // 타격마다 설정할 수직 속도(0=낙하만 멈춰 제자리 체공, 양수면 살짝 상승). 위로 솟지 않게 기본 0.
+    UPROPERTY(EditDefaultsOnly, Category = "Combat|AirFloat")
+    float SelfPopZ = 0.f;
+
+    // 콤보 캔슬 윈도우가 열리는 시점(몽타주 길이 대비 비율). 이 시점 이후 버퍼된 입력이 있으면
+    // 회복 동작을 캔슬하고 즉시 다음 타로 넘어간다. 작을수록 빠릿(연결 부드러움), 클수록 또박또박.
+    UPROPERTY(EditDefaultsOnly, Category = "Combat", meta = (ClampMin = "0.1", ClampMax = "0.95"))
+    float ComboWindowFraction = 0.5f;
+
+    // 데이터 행에서 사용할 콤보 배열 선택 (지상=GroundCombo, 공중 콤보 클래스는 오버라이드)
+    virtual const TArray<TObjectPtr<UAnimMontage>>& SelectCombo(const FWeaponComboData& Data) const;
+
+    UFUNCTION()
+    void OnComboWindowOpen();
+
+    UFUNCTION()
+    void OnComboBlendOut();
+
+    UFUNCTION()
+    void OnComboInterrupted();
+
+    UFUNCTION()
+    void DoMeleeTrace();
+
+    // 공중 콤보 자기 체공 — 착지 시 중력 복원
+    UFUNCTION()
+    void OnSelfLanded(const FHitResult& Hit);
+
+    // ── 스텝인(전진키+타겟 방향으로 조금씩 접근) ────────────────────────
+    // 콤보 몽타주가 제자리(root lock)라 애님 루트모션 대신 코드로 타겟에 다가간다.
+    UPROPERTY(EditDefaultsOnly, Category = "Combat|StepIn")
+    bool bEnableStepIn = true;
+
+    // 이 거리 안의 타겟에만 스텝인(너무 먼 적까지 끌려가지 않게)
+    UPROPERTY(EditDefaultsOnly, Category = "Combat|StepIn")
+    float StepInMaxRange = 450.f;
+
+    // 타겟에서 이 거리까지만 접근(붙어서 겹치지 않게)
+    UPROPERTY(EditDefaultsOnly, Category = "Combat|StepIn")
+    float StepInStopDistance = 150.f;
+
+    // 한 타당 접근에 걸리는 시간
+    UPROPERTY(EditDefaultsOnly, Category = "Combat|StepIn")
+    float StepInDuration = 0.12f;
+
+    // 전진키로 인정할 전후 입력 임계값(Move 입력 Y)
+    UPROPERTY(EditDefaultsOnly, Category = "Combat|StepIn")
+    float StepInForwardThreshold = 0.3f;
+
+    // 한 타에서 좁힐 수 있는 최대 거리(살짝씩만 — "조금씩 앞으로")
+    UPROPERTY(EditDefaultsOnly, Category = "Combat|StepIn")
+    float StepInMaxStep = 220.f;
+
+private:
+    // 현재 인덱스의 콤보 몽타주를 재생하고 히트 판정/캔슬 윈도우 타이머를 건다
+    void PlayComboMontage();
+
+    // 전진키가 눌려있고 타겟이 앞에 있으면 타겟 쪽으로 조금 접근(타격 시작 시 호출)
+    void TryStepInToTarget();
+    void StepInTick();
+    void StopStepIn();
+    AActor* FindStepInTarget(const FVector& SelfLoc, const FVector& Forward) const;
+
+    // 자기 체공 적용/복원
+    void ApplySelfFloat();
+    void RestoreSelfGravity();
+
+    // 버퍼된 입력이 있으면 다음 타로 진행(중복 진행 방지)
+    void AdvanceCombo();
+
+    // 이번 활성화에서 사용할 콤보 몽타주 배열(활성화 시점에 무기로 조회해 캐시)
+    UPROPERTY()
+    TArray<TObjectPtr<UAnimMontage>> CurrentMontages;
+
+    // 현재 재생 중인 콤보 타 인덱스
+    int32 ComboIndex = 0;
+
+    // 다음 타 입력이 예약되었는지
+    bool bInputBuffered = false;
+
+    // 현재 타의 캔슬 윈도우가 열렸는지
+    bool bWindowOpen = false;
+
+    // 현재 타에서 이미 다음 타로 넘어갔는지(중복 진행 방지)
+    bool bChained = false;
+
+    // 우리가 의도적으로 몽타주를 교체하는 중인지(이때 발생하는 OnInterrupted는 무시)
+    bool bAdvancing = false;
+
+    float CurrentDamage = 25.f;
+
+    // 이번 활성화의 공격 몽타주 재생 속도(데이터에서 캐시)
+    float CurrentPlayRate = 1.0f;
+
+    // 스텝인 보간 상태
+    FTimerHandle StepInTimerHandle;
+    FVector StepInStartLoc = FVector::ZeroVector;
+    FVector StepInEndLoc = FVector::ZeroVector;
+    float StepInElapsed = 0.f;
+
+    // 자기 체공 상태
+    float SavedSelfGravity = 1.0f;
+    bool  bSelfFloatActive = false;
+
+    UPROPERTY()
+    FHitFeel CurrentHitFeel;
+};

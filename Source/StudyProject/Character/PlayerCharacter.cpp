@@ -9,6 +9,9 @@
 #include "UObject/ConstructorHelpers.h"
 #include "Inventory/TradeComponent.h"
 #include "Inventory/InventoryComponent.h"
+#include "GAS/CombatAbilitySystemComponent.h"
+#include "GAS/StudyGameplayTags.h"
+#include "Combat/LockOnComponent.h"
 #include "UI/HUD/HUDWidget.h"
 #include "UI/Dialogue/DialogueWidget.h"
 #include "UI/Shop/ShopScreenWidget.h"
@@ -90,6 +93,9 @@ APlayerCharacter::APlayerCharacter()
     InteractionDetector = CreateDefaultSubobject<UInteractionDetectorComponent>(TEXT("InteractionDetector"));
     InteractionDetector->SetupAttachment(RootComponent);
 
+    // 록온 컴포넌트
+    LockOnComp = CreateDefaultSubobject<ULockOnComponent>(TEXT("LockOnComp"));
+
     // 임시 테스트용 강화 화면 단축키(K) 기본값 — 에디터에서 재지정 가능
     static ConstructorHelpers::FObjectFinder<UInputAction> EnhanceIAFinder(
         TEXT("/Game/Input/Actions/IA_Enhance.IA_Enhance"));
@@ -110,6 +116,10 @@ APlayerCharacter::APlayerCharacter()
     static ConstructorHelpers::FClassFinder<UUserWidget> PromptWBPFinder(
         TEXT("/Game/UI/Common/WBP_InteractionPrompt"));
     if (PromptWBPFinder.Succeeded()) InteractionPromptClass = PromptWBPFinder.Class;
+
+    static ConstructorHelpers::FClassFinder<UUserWidget> SPBarWBPFinder(
+        TEXT("/Game/UI/HUD/WBP_SPBar"));
+    if (SPBarWBPFinder.Succeeded()) SPBarWidgetClass = SPBarWBPFinder.Class;
 
     PrimaryActorTick.bCanEverTick = true;   // 프롬프트 위치 추적용
 }
@@ -136,6 +146,16 @@ void APlayerCharacter::BeginPlay()
         if (HUDWidget)
         {
             HUDWidget->AddToViewport();
+        }
+    }
+
+    // SP/HP 바 위젯
+    if (IsLocallyControlled() && SPBarWidgetClass)
+    {
+        SPBarWidget = CreateWidget<UUserWidget>(PC, SPBarWidgetClass);
+        if (SPBarWidget)
+        {
+            SPBarWidget->AddToViewport(1);
         }
     }
 
@@ -191,6 +211,7 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
     if (MoveAction)
     {
         EIC->BindAction(MoveAction, ETriggerEvent::Triggered, this, &APlayerCharacter::HandleMove);
+        EIC->BindAction(MoveAction, ETriggerEvent::Completed, this, &APlayerCharacter::HandleMoveCompleted);
     }
     if (LookAction)
     {
@@ -221,12 +242,50 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
     {
         EIC->BindAction(EnhanceAction, ETriggerEvent::Started, this, &APlayerCharacter::HandleEnhance);
     }
+
+    // ── GAS 어빌리티 입력 ───────────────────────────────────────────
+    if (AttackAction)
+    {
+        EIC->BindAction(AttackAction, ETriggerEvent::Started, this, &APlayerCharacter::HandleAttack);
+    }
+    if (HeavyAttackAction)
+    {
+        EIC->BindAction(HeavyAttackAction, ETriggerEvent::Started, this, &APlayerCharacter::HandleLauncher);
+    }
+    if (FinisherAction)
+    {
+        EIC->BindAction(FinisherAction, ETriggerEvent::Started, this, &APlayerCharacter::HandleFinisher);
+    }
+    if (LockOnAction)
+    {
+        EIC->BindAction(LockOnAction, ETriggerEvent::Started, this, &APlayerCharacter::HandleLockOn);
+    }
+    if (LockOnSwitchAction)
+    {
+        EIC->BindAction(LockOnSwitchAction, ETriggerEvent::Triggered, this, &APlayerCharacter::HandleLockOnSwitch);
+    }
+    if (DodgeAction)
+    {
+        EIC->BindAction(DodgeAction, ETriggerEvent::Started, this, &APlayerCharacter::HandleDodge);
+    }
 }
 
 // ── 입력 핸들러 ──────────────────────────────────────────────────────────────
 
 void APlayerCharacter::HandleMove(const FInputActionValue& Value)
 {
+    // 이동이 잠겨도 입력값 자체는 기록(콤보 스텝인의 전진키 눌림 판정용)
+    LastMoveInput = Value.Get<FVector2D>();
+
+    // 공격/회피/처형 등 모션 중에는 실제 이동은 무시
+    if (UCombatAbilitySystemComponent* ASC = Cast<UCombatAbilitySystemComponent>(GetAbilitySystemComponent()))
+    {
+        if (ASC->IsMovementLocked())
+        {
+            return;
+        }
+    }
+
     const FVector2D MoveVec = Value.Get<FVector2D>();
     if (Controller)
     {
@@ -236,6 +295,12 @@ void APlayerCharacter::HandleMove(const FInputActionValue& Value)
         AddMovementInput(FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X), MoveVec.Y);
         AddMovementInput(FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y), MoveVec.X);
     }
+}
+
+void APlayerCharacter::HandleMoveCompleted(const FInputActionValue& /*Value*/)
+{
+    // 키에서 손 떼면 입력값 초기화(Triggered가 더 이상 안 들어오므로 직접 클리어)
+    LastMoveInput = FVector2D::ZeroVector;
 }
 
 void APlayerCharacter::HandleLook(const FInputActionValue& Value)
@@ -376,6 +441,71 @@ void APlayerCharacter::HandleEnhance()
     {
         OpenEnhance();
     }
+}
+
+// ── GAS 어빌리티 입력 ───────────────────────────────────────────────────────
+
+void APlayerCharacter::HandleAttack()
+{
+    UCombatAbilitySystemComponent* ASC = Cast<UCombatAbilitySystemComponent>(GetAbilitySystemComponent());
+    if (ASC == nullptr)
+    {
+        return;
+    }
+    // 낙하/점프 중이면 공중 콤보, 아니면 지상 콤보로 라우팅
+    const bool bFalling = (GetCharacterMovement() != nullptr) && GetCharacterMovement()->IsFalling();
+    ASC->TryActivateAbilityByInputTag(bFalling ? StudyTags::Input_AirAttack : StudyTags::Input_Attack);
+}
+
+void APlayerCharacter::HandleLauncher()
+{
+    UCombatAbilitySystemComponent* ASC = Cast<UCombatAbilitySystemComponent>(GetAbilitySystemComponent());
+    if (ASC == nullptr)
+    {
+        return;
+    }
+    ASC->TryActivateAbilityByInputTag(StudyTags::Input_Launcher);
+}
+
+void APlayerCharacter::HandleFinisher()
+{
+    UCombatAbilitySystemComponent* ASC = Cast<UCombatAbilitySystemComponent>(GetAbilitySystemComponent());
+    if (ASC == nullptr)
+    {
+        return;
+    }
+    ASC->TryActivateAbilityByInputTag(StudyTags::Input_Finisher);
+}
+
+void APlayerCharacter::HandleLockOn()
+{
+    if (LockOnComp != nullptr)
+    {
+        LockOnComp->ToggleLockOn();
+    }
+}
+
+void APlayerCharacter::HandleLockOnSwitch(const FInputActionValue& Value)
+{
+    if (LockOnComp == nullptr)
+    {
+        return;
+    }
+    const float Dir = Value.Get<float>();
+    if (FMath::Abs(Dir) > 0.1f)
+    {
+        LockOnComp->SwitchTarget(Dir);
+    }
+}
+
+void APlayerCharacter::HandleDodge()
+{
+    UCombatAbilitySystemComponent* ASC = Cast<UCombatAbilitySystemComponent>(GetAbilitySystemComponent());
+    if (ASC == nullptr)
+    {
+        return;
+    }
+    ASC->TryActivateAbilityByInputTag(StudyTags::Input_Dodge);
 }
 
 void APlayerCharacter::HandleSprintStart()

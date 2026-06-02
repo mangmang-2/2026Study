@@ -1,9 +1,10 @@
 #include "CombatAbilitySystemComponent.h"
 #include "CombatGameplayAbility.h"
+#include "GA_Combo.h"
 
 bool UCombatAbilitySystemComponent::TryActivateAbilityByInputTag(FGameplayTag InputTag)
 {
-    if (!InputTag.IsValid())
+    if (InputTag.IsValid() == false)
     {
         return false;
     }
@@ -12,9 +13,39 @@ bool UCombatAbilitySystemComponent::TryActivateAbilityByInputTag(FGameplayTag In
     for (const FGameplayAbilitySpec& Spec : GetActivatableAbilities())
     {
         const UCombatGameplayAbility* GA = Cast<UCombatGameplayAbility>(Spec.Ability);
-        if (GA && GA->InputTag.IsValid() && GA->InputTag == InputTag)
+        if (GA != nullptr && GA->InputTag.IsValid() && GA->InputTag == InputTag)
         {
+            // 이미 활성 중인 콤보 어빌리티면 재활성화 대신 다음 타를 버퍼링한다.
+            for (UGameplayAbility* Instance : Spec.GetAbilityInstances())
+            {
+                if (Instance != nullptr && Instance->IsActive())
+                {
+                    if (UGA_Combo* Combo = Cast<UGA_Combo>(Instance))
+                    {
+                        Combo->NotifyComboInput();
+                        return true;
+                    }
+                }
+            }
             return TryActivateAbility(Spec.Handle);
+        }
+    }
+    return false;
+}
+
+bool UCombatAbilitySystemComponent::IsMovementLocked() const
+{
+    for (const FGameplayAbilitySpec& Spec : GetActivatableAbilities())
+    {
+        if (Spec.IsActive() == false)
+        {
+            continue;
+        }
+
+        const UCombatGameplayAbility* GA = Cast<UCombatGameplayAbility>(Spec.Ability);
+        if (GA != nullptr && GA->bLocksMovement)
+        {
+            return true;
         }
     }
     return false;

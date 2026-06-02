@@ -30,7 +30,15 @@ namespace StudyTags
     UE_DEFINE_GAMEPLAY_TAG(Event_Death,           "Event.Death");
     UE_DEFINE_GAMEPLAY_TAG(Event_ComboWindowOpen, "Event.ComboWindowOpen");
     UE_DEFINE_GAMEPLAY_TAG(Event_Melee_Hit,       "Event.Melee.Hit");
+    UE_DEFINE_GAMEPLAY_TAG(Event_Launched,        "Event.Launched");
+    UE_DEFINE_GAMEPLAY_TAG(Event_Executed,        "Event.Executed");
 
-    UE_DEFINE_GAMEPLAY_TAG(Input_Attack, "Input.Attack");
-    UE_DEFINE_GAMEPLAY_TAG(Input_Dodge,  "Input.Dodge");
+    UE_DEFINE_GAMEPLAY_TAG(Input_Attack,    "Input.Attack");
+    UE_DEFINE_GAMEPLAY_TAG(Input_AirAttack, "Input.AirAttack");
+    UE_DEFINE_GAMEPLAY_TAG(Input_Launcher,  "Input.Launcher");
+    UE_DEFINE_GAMEPLAY_TAG(Input_Finisher,  "Input.Finisher");
+    UE_DEFINE_GAMEPLAY_TAG(Input_Dodge,     "Input.Dodge");
+
+    UE_DEFINE_GAMEPLAY_TAG(Data_Damage,  "Data.Damage");
+    UE_DEFINE_GAMEPLAY_TAG(Data_LaunchZ, "Data.LaunchZ");
 }

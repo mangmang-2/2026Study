@@ -105,6 +105,10 @@ protected:
     UPROPERTY(EditDefaultsOnly, Category = "GAS")
     TSubclassOf<UGameplayEffect> DefaultAttributeEffect;
 
+    // SP 자동 회복 GE (무한 주기 GE — 공격 중엔 State.Attacking으로 정지)
+    UPROPERTY(EditDefaultsOnly, Category = "GAS")
+    TSubclassOf<UGameplayEffect> SPRegenEffect;
+
     // ASC ActorInfo 초기화 + (서버) 기본 어빌리티/스탯 부여
     void InitAbilitySystem();
     bool bAbilitiesGranted = false;

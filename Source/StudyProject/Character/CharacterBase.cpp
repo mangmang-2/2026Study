@@ -111,6 +111,18 @@ void ACharacterBase::InitAbilitySystem()
         }
     }
 
+    // SP 자동 회복 GE 적용(무한 주기)
+    if (SPRegenEffect)
+    {
+        FGameplayEffectContextHandle RegenCtx = AbilitySystemComponent->MakeEffectContext();
+        RegenCtx.AddSourceObject(this);
+        FGameplayEffectSpecHandle RegenSpec = AbilitySystemComponent->MakeOutgoingSpec(SPRegenEffect, 1.f, RegenCtx);
+        if (RegenSpec.IsValid())
+        {
+            AbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*RegenSpec.Data.Get());
+        }
+    }
+
     // 기본 어빌리티 부여
     for (const TSubclassOf<UGameplayAbility>& AbilityClass : DefaultAbilities)
     {

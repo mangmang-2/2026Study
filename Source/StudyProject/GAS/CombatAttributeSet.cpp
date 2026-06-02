@@ -72,6 +72,9 @@ void UCombatAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCall
         SetSP(FMath::Clamp(GetSP(), 0.f, GetMaxSP()));
     }
 
+    // 데미지를 받았고 아직 살아있으면 피격 이벤트 전송(피격 GA가 수신해 hit react 재생)
+    const bool bTookDamage = (Data.EvaluatedData.Attribute == GetDamageAttribute());
+
     // 사망 처리 — HP 0 이하 + 아직 Dead 아님
     if (GetHP() <= 0.f && ASC && !ASC->HasMatchingGameplayTag(StudyTags::State_Dead))
     {
@@ -83,5 +86,14 @@ void UCombatAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCall
         Payload.Instigator = Data.EffectSpec.GetContext().GetInstigator();
         Payload.Target = TargetActor;
         ASC->HandleGameplayEvent(StudyTags::Event_Death, &Payload);
+    }
+    else if (bTookDamage && GetHP() > 0.f && ASC)
+    {
+        // 피격 이벤트 전송(HitReact GA가 수신)
+        FGameplayEventData Payload;
+        Payload.EventTag = StudyTags::Event_HitReact;
+        Payload.Instigator = Data.EffectSpec.GetContext().GetInstigator();
+        Payload.Target = TargetActor;
+        ASC->HandleGameplayEvent(StudyTags::Event_HitReact, &Payload);
     }
 }
