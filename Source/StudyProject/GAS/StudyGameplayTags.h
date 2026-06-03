@@ -23,6 +23,8 @@ namespace StudyTags
     STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_AirCombo);
     STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Finisher);
     STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_LockOn);
+    STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_EnemyAttack);   // 적 AI 공격 GA
+    STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Stagger);       // 패리당한 적 스태거 GA
 
     // Effect.*
     STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Effect_HitStop);
@@ -32,6 +34,8 @@ namespace StudyTags
     STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Status_Invincible);
     STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Status_SuperArmor);
     STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Status_CanFinish);
+    STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Status_Parrying);     // 저스트카운터 패리 윈도우 활성 중
+    STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Status_Staggered);    // 패리당해 경직(처형 오프닝)
 
     // Event.* (AnimNotify / GA 간 통신)
     STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_HitReact);
@@ -43,6 +47,8 @@ namespace StudyTags
     STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Launched);
     STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Slammed);   // 공중콤보 마무리: 적을 바닥으로 내려찍기
     STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Executed);
+    STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Parried);    // 패리 성공 → 패리한 쪽(플레이어)에 전송
+    STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Staggered);  // 패리당함 → 공격자(적)에 전송(스태거)
 
     // Input.* (Enhanced Input → GA 활성화 라우팅)
     STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Input_Attack);
@@ -50,6 +56,7 @@ namespace StudyTags
     STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Input_Launcher);
     STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Input_Finisher);
     STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Input_Dodge);
+    STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Input_Parry);   // 저스트카운터(패리) 입력
 
     // Data.* (GameplayEffect SetByCaller 매그니튜드 키)
     STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Damage);

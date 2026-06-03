@@ -76,13 +76,16 @@ void UInventoryWidget::RefreshInventory()
     UItemSubsystem* FilterSub = (CurrentFilter != EItemType::All && GetWorld())
         ? GetWorld()->GetGameInstance()->GetSubsystem<UItemSubsystem>() : nullptr;
 
+    const bool bFiltering = (CurrentFilter != EItemType::All);
+
     TArray<FInventorySlot> Slots;
+    TArray<int32> SourceIndices;   // 필터 시에만 채움(All이면 빈 배열 → 그리드 위치=인벤 인덱스)
     for (int32 i = 0; i < BoundInventory->GetMaxSlots(); ++i)
     {
         FInventorySlot S = BoundInventory->GetSlot(i);
 
-        // 필터 적용: 종류가 안 맞으면 표시상 빈 칸으로(실제 데이터는 유지)
-        if (CurrentFilter != EItemType::All && S.IsEmpty() == false)
+        // 필터 적용: 종류가 안 맞는 아이템은 건너뜀(매칭 아이템이 앞으로 압축됨)
+        if (bFiltering && S.IsEmpty() == false)
         {
             const FItemData* D = FilterSub ? FilterSub->GetItemData(S.ItemID) : nullptr;
             if (D == nullptr || D->ItemType != CurrentFilter)
@@ -91,9 +94,13 @@ void UInventoryWidget::RefreshInventory()
             }
         }
         Slots.Add(S);
+        if (bFiltering)
+        {
+            SourceIndices.Add(i);   // 표시 위치 → 실제 인벤 슬롯 인덱스 매핑
+        }
     }
 
-    GridWidget->RefreshGrid(Slots);
+    GridWidget->RefreshGrid(Slots, SourceIndices);
 
     for (int32 i = 0; i < BoundInventory->GetMaxSlots(); ++i)
     {

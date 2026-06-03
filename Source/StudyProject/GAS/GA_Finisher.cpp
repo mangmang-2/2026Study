@@ -121,11 +121,8 @@ void UGA_Finisher::StartCinematic(AActor* Target)
         return;
     }
 
-    // 슬로모션
-    if (SlowMoScale > 0.f && SlowMoScale < 1.f)
-    {
-        UGameplayStatics::SetGlobalTimeDilation(World, SlowMoScale);
-    }
+    // 슬로모션 제거: 멀티플레이에서 글로벌 타임딜레이션은 모든 플레이어를 늦춰 다른 클라에
+    // 이상하게 보임. 카메라 연출(로컬 PC 시점 전환)만 유지한다.
 
     // 연출 카메라 — 두 캐릭터 측면에서 잡기(전부 BP 파라미터로 조절)
     const FVector PlayerLoc = Avatar->GetActorLocation();
@@ -164,11 +161,7 @@ void UGA_Finisher::StartCinematic(AActor* Target)
 void UGA_Finisher::EndCinematic()
 {
     AActor* Avatar = GetAvatarActorFromActorInfo();
-    UWorld* World = (Avatar != nullptr) ? Avatar->GetWorld() : nullptr;
-    if (World != nullptr)
-    {
-        UGameplayStatics::SetGlobalTimeDilation(World, 1.f);
-    }
+    // 글로벌 타임딜레이션 미사용(멀티 호환) — 복원 불필요.
 
     // 카메라 복귀
     if (APawn* AvatarPawn = Cast<APawn>(Avatar))

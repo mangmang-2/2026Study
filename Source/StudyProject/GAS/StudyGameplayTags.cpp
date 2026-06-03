@@ -18,6 +18,8 @@ namespace StudyTags
     UE_DEFINE_GAMEPLAY_TAG(Ability_AirCombo,    "Ability.AirCombo");
     UE_DEFINE_GAMEPLAY_TAG(Ability_Finisher,    "Ability.Finisher");
     UE_DEFINE_GAMEPLAY_TAG(Ability_LockOn,      "Ability.LockOn");
+    UE_DEFINE_GAMEPLAY_TAG(Ability_EnemyAttack, "Ability.EnemyAttack");
+    UE_DEFINE_GAMEPLAY_TAG(Ability_Stagger,     "Ability.Stagger");
 
     UE_DEFINE_GAMEPLAY_TAG(Effect_HitStop,   "Effect.HitStop");
     UE_DEFINE_GAMEPLAY_TAG(Effect_Knockback, "Effect.Knockback");
@@ -25,6 +27,8 @@ namespace StudyTags
     UE_DEFINE_GAMEPLAY_TAG(Status_Invincible, "Status.Invincible");
     UE_DEFINE_GAMEPLAY_TAG(Status_SuperArmor, "Status.SuperArmor");
     UE_DEFINE_GAMEPLAY_TAG(Status_CanFinish,  "Status.CanFinish");
+    UE_DEFINE_GAMEPLAY_TAG(Status_Parrying,   "Status.Parrying");
+    UE_DEFINE_GAMEPLAY_TAG(Status_Staggered,  "Status.Staggered");
 
     UE_DEFINE_GAMEPLAY_TAG(Event_HitReact,        "Event.HitReact");
     UE_DEFINE_GAMEPLAY_TAG(Event_Death,           "Event.Death");
@@ -35,12 +39,15 @@ namespace StudyTags
     UE_DEFINE_GAMEPLAY_TAG(Event_Launched,        "Event.Launched");
     UE_DEFINE_GAMEPLAY_TAG(Event_Slammed,         "Event.Slammed");
     UE_DEFINE_GAMEPLAY_TAG(Event_Executed,        "Event.Executed");
+    UE_DEFINE_GAMEPLAY_TAG(Event_Parried,         "Event.Parried");
+    UE_DEFINE_GAMEPLAY_TAG(Event_Staggered,       "Event.Staggered");
 
     UE_DEFINE_GAMEPLAY_TAG(Input_Attack,    "Input.Attack");
     UE_DEFINE_GAMEPLAY_TAG(Input_AirAttack, "Input.AirAttack");
     UE_DEFINE_GAMEPLAY_TAG(Input_Launcher,  "Input.Launcher");
     UE_DEFINE_GAMEPLAY_TAG(Input_Finisher,  "Input.Finisher");
     UE_DEFINE_GAMEPLAY_TAG(Input_Dodge,     "Input.Dodge");
+    UE_DEFINE_GAMEPLAY_TAG(Input_Parry,     "Input.Parry");
 
     UE_DEFINE_GAMEPLAY_TAG(Data_Damage,  "Data.Damage");
     UE_DEFINE_GAMEPLAY_TAG(Data_LaunchZ, "Data.LaunchZ");

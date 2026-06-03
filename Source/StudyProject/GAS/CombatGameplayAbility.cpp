@@ -12,6 +12,8 @@
 #include "ComboData.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/PlayerController.h"
+#include "Character/CharacterBase.h"
+#include "Character/EnemyCharacter.h"
 #include "Camera/CameraShakeBase.h"
 #include "TimerManager.h"
 #include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
@@ -68,6 +70,10 @@ bool UCombatGameplayAbility::ApplyMeleeDamage(float DamageAmount, FGameplayTag E
     bool bHitAny = false;
     TSet<AActor*> Done;
     TArray<TWeakObjectPtr<AActor>> StoppedActors;   // 히트스톱 복원 대상
+
+    // 아군 오사 방지용 공격자 진영(적=AEnemyCharacter/보스, 그 외=플레이어 진영)
+    const bool bAvatarIsEnemy = Avatar->IsA(AEnemyCharacter::StaticClass());
+
     for (const FHitResult& Hit : Hits)
     {
         AActor* Target = Hit.GetActor();
@@ -76,6 +82,12 @@ bool UCombatGameplayAbility::ApplyMeleeDamage(float DamageAmount, FGameplayTag E
             continue;
         }
         Done.Add(Target);
+
+        // 같은 진영(적↔적 / 플레이어↔플레이어)은 데미지 안 줌 — 아군 오사 방지
+        if (Target->IsA(AEnemyCharacter::StaticClass()) == bAvatarIsEnemy)
+        {
+            continue;
+        }
 
         // 한 스윙(여러 프레임) 동안 같은 대상 중복 타격 방지
         if (AlreadyHit != nullptr && AlreadyHit->Contains(Target))
@@ -89,11 +101,51 @@ bool UCombatGameplayAbility::ApplyMeleeDamage(float DamageAmount, FGameplayTag E
             continue;
         }
 
-        // 적중 지점에 히트 이펙트 스폰(설정된 경우)
-        if (Feel.HitEffect != nullptr)
+        // ── 저스트카운터(패리) 가로채기 ────────────────────────────────
+        // 타깃이 패리 윈도우 중이고 공격자를 바라보고 있으면: 데미지/넉백/히트스톱 전부 무효 +
+        // 공격자에게 Event.Staggered(경직) + 패리한 쪽에 Event.Parried(리포스트 발동) 전송.
+        if (TargetASC->HasMatchingGameplayTag(StudyTags::Status_Parrying))
         {
-            const FVector ImpactPoint(Hit.ImpactPoint);
-            const FVector FxLoc = ImpactPoint.IsZero() ? Target->GetActorLocation() : ImpactPoint;
+            FVector ToAttacker = Avatar->GetActorLocation() - Target->GetActorLocation();
+            ToAttacker.Z = 0.f;
+            const FVector TgtFwd = Target->GetActorForwardVector().GetSafeNormal2D();
+            if (FVector::DotProduct(TgtFwd, ToAttacker.GetSafeNormal()) >= ParryFacingDot)
+            {
+                // 공격자(적) 경직
+                {
+                    FGameplayEventData StaggerP;
+                    StaggerP.EventTag = StudyTags::Event_Staggered;
+                    StaggerP.Instigator = Target;
+                    StaggerP.Target = Avatar;
+                    SourceASC->HandleGameplayEvent(StudyTags::Event_Staggered, &StaggerP);
+                }
+                // 패리한 쪽(플레이어) 성공 — 리포스트 GA가 수신
+                {
+                    FGameplayEventData ParryP;
+                    ParryP.EventTag = StudyTags::Event_Parried;
+                    ParryP.Instigator = Avatar;
+                    ParryP.Target = Target;
+                    TargetASC->HandleGameplayEvent(StudyTags::Event_Parried, &ParryP);
+                }
+                // 이 스윙에서 같은 대상 재판정 방지(데미지는 안 줌)
+                if (AlreadyHit != nullptr)
+                {
+                    AlreadyHit->Add(Target);
+                }
+                continue;   // 데미지/넉백/히트스톱/피드백 모두 건너뜀
+            }
+        }
+
+        // 타격 피드백(히트VFX + 피격자 플래시 + 데미지넘버) — 멀티에서 다른 유저도 보이게
+        // 공격자 액터의 NetMulticast로 재생(서버 권위에서만 트리거 → 모든 클라). VFX는 null이어도 OK.
+        const FVector FxLoc = Hit.ImpactPoint.IsZero() ? Target->GetActorLocation() : FVector(Hit.ImpactPoint);
+        ACharacterBase* AvatarChar = Cast<ACharacterBase>(Avatar);
+        if (AvatarChar != nullptr && Avatar->HasAuthority())
+        {
+            AvatarChar->Multicast_HitFeedback(Feel.HitEffect, FxLoc, Hit.ImpactNormal, Target, FMath::RoundToInt(DamageAmount), false);
+        }
+        else if (AvatarChar == nullptr && Feel.HitEffect != nullptr)
+        {
             UNiagaraFunctionLibrary::SpawnSystemAtLocation(World, Feel.HitEffect, FxLoc, FRotator(Hit.ImpactNormal.Rotation()));
         }
 

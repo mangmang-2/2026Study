@@ -69,7 +69,21 @@ void UGA_AirLaunch::ActivateAbility(
             }
             Move->GravityScale = SlamGravityScale;   // 빠르게 내리꽂힘
         }
-        Char->LaunchCharacter(FVector(0.f, 0.f, -Down), true, true);
+
+        // 공격자 반대 방향(수평)으로 밀어 사선으로 내리꽂힘
+        FVector Horiz = FVector::ZeroVector;
+        if (TriggerEventData != nullptr && TriggerEventData->Instigator != nullptr)
+        {
+            FVector Away = Char->GetActorLocation() - TriggerEventData->Instigator->GetActorLocation();
+            Away.Z = 0.f;
+            Away = Away.GetSafeNormal();
+            if (Away.IsNearlyZero())
+            {
+                Away = Char->GetActorForwardVector().GetSafeNormal2D();
+            }
+            Horiz = Away * SlamHorizSpeed;
+        }
+        Char->LaunchCharacter(FVector(Horiz.X, Horiz.Y, -Down), true, true);
 
         UAnimMontage* SlamM = (SlamMontage != nullptr) ? SlamMontage : AirHitMontage;
         if (SlamM != nullptr)

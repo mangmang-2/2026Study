@@ -57,6 +57,10 @@ protected:
     UPROPERTY(EditDefaultsOnly, Category = "Combat|Slam")
     float SlamGravityScale = 3.0f;
 
+    // 슬램 시 공격자 반대 방향(수평)으로 밀어 사선으로 내리꽂히게. 0=수직.
+    UPROPERTY(EditDefaultsOnly, Category = "Combat|Slam")
+    float SlamHorizSpeed = 450.f;
+
     // 이벤트에서 매그니튜드가 안 오면 사용할 기본 상승 속도
     UPROPERTY(EditDefaultsOnly, Category = "Combat")
     float DefaultLaunchZ = 700.f;

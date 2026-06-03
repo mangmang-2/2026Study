@@ -10,6 +10,15 @@
 #include "Data/GameSaveData.h"
 #include "Kismet/GameplayStatics.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Components/StaticMeshComponent.h"
+#include "NiagaraComponent.h"
+#include "NiagaraFunctionLibrary.h"
+#include "NiagaraSystem.h"
+#include "Materials/MaterialInterface.h"
+#include "GameFramework/PlayerController.h"
+#include "Blueprint/UserWidget.h"
+#include "UI/HUD/DamageNumberWidget.h"
+#include "TimerManager.h"
 #include "Net/UnrealNetwork.h"
 
 ACharacterBase::ACharacterBase()
@@ -46,6 +55,15 @@ ACharacterBase::ACharacterBase()
     SetupModularMesh(ArmsMesh);
     SetupModularMesh(WeaponMesh);
     SetupModularMesh(ShieldMesh);
+
+    // 스태틱 메시 무기 컴포넌트(손 소켓에 부착될 예정) + 강화 오라 VFX
+    WeaponStaticMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("WeaponStaticMesh"));
+    WeaponStaticMesh->SetupAttachment(GetMesh());
+    WeaponStaticMesh->SetCollisionProfileName(TEXT("NoCollision"));
+
+    WeaponAuraVFX = CreateDefaultSubobject<UNiagaraComponent>(TEXT("WeaponAuraVFX"));
+    WeaponAuraVFX->SetupAttachment(GetMesh());
+    WeaponAuraVFX->SetAutoActivate(false);
 }
 
 void ACharacterBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -75,6 +93,59 @@ void ACharacterBase::OnRep_Gold()
 UAbilitySystemComponent* ACharacterBase::GetAbilitySystemComponent() const
 {
     return AbilitySystemComponent;
+}
+
+void ACharacterBase::Multicast_HitFeedback_Implementation(UNiagaraSystem* VFX, FVector Location, FVector Normal,
+    AActor* Victim, int32 Damage, bool bCritical)
+{
+    UWorld* World = GetWorld();
+    if (World == nullptr)
+    {
+        return;
+    }
+
+    // 1) 히트 VFX
+    if (VFX != nullptr)
+    {
+        UNiagaraFunctionLibrary::SpawnSystemAtLocation(World, VFX, Location, Normal.Rotation());
+    }
+
+    // 2) 피격자 메시 흰색 플래시(오버레이 머티리얼 → 짧게 후 해제)
+    if (HitFlashMaterial != nullptr)
+    {
+        if (ACharacter* VictimChar = Cast<ACharacter>(Victim))
+        {
+            if (USkeletalMeshComponent* VictimMesh = VictimChar->GetMesh())
+            {
+                VictimMesh->SetOverlayMaterial(HitFlashMaterial);
+                TWeakObjectPtr<USkeletalMeshComponent> WeakMesh = VictimMesh;
+                FTimerHandle FlashTimer;
+                World->GetTimerManager().SetTimer(FlashTimer,
+                    FTimerDelegate::CreateWeakLambda(this, [WeakMesh]()
+                    {
+                        if (WeakMesh.IsValid())
+                        {
+                            WeakMesh->SetOverlayMaterial(nullptr);
+                        }
+                    }),
+                    HitFlashDuration, false);
+            }
+        }
+    }
+
+    // 3) 데미지 넘버(각 클라의 로컬 플레이어 화면에만)
+    if (Damage > 0)
+    {
+        APlayerController* PC = World->GetFirstPlayerController();
+        if (PC != nullptr && PC->IsLocalController())
+        {
+            if (UDamageNumberWidget* W = CreateWidget<UDamageNumberWidget>(PC, UDamageNumberWidget::StaticClass()))
+            {
+                W->AddToViewport(100);
+                W->Init(Damage, bCritical ? EDamageType::Critical : EDamageType::Normal, Location);
+            }
+        }
+    }
 }
 
 void ACharacterBase::PossessedBy(AController* NewController)

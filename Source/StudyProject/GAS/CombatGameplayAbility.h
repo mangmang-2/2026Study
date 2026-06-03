@@ -43,6 +43,11 @@ protected:
     UPROPERTY(EditDefaultsOnly, Category = "Combat|Damage")
     float MeleeRadius = 70.f;
 
+    // 패리 성공 판정: 타깃 정면 벡터와 '타깃→공격자' 방향의 내적이 이 값 이상이면 정면 패리로 인정.
+    // 0.1 ≈ 약 84도 전방까지 허용(너무 빡빡하지 않게). ApplyMeleeDamage에서 사용.
+    UPROPERTY(EditDefaultsOnly, Category = "Combat|Damage")
+    float ParryFacingDot = 0.1f;
+
     // 전방 스피어 트레이스 → 맞은 ASC들에 DamageGEClass(SetByCaller Data.Damage=DamageAmount) 적용.
     // EventOnHit이 유효하면 각 타깃 ASC로 게임플레이 이벤트도 전송.
     // Feel(타격감): 적중 지점 이펙트 + 히트스톱(공격자+피격자) + 카메라 셰이크 + 넉백.

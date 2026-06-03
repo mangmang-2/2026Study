@@ -386,18 +386,19 @@ void UGA_Combo::TryStepInToTarget()
         return;
     }
 
-    // 타겟 방향(수평) + 정지 거리만큼 못 미치는 지점이 목표
+    // 타겟 방향(수평)
     FVector ToTarget = TargetActor->GetActorLocation() - SelfLoc;
     ToTarget.Z = 0.f;
     const float Dist = ToTarget.Size();
-    if (Dist <= CurrentStepIn.StopDistance + 1.f)
-    {
-        return;   // 이미 충분히 가까움
-    }
+    const FVector Dir = (Dist > KINDA_SMALL_NUMBER) ? (ToTarget / Dist) : Forward;
 
-    const FVector Dir = ToTarget / Dist;
-    float MoveDist = Dist - CurrentStepIn.StopDistance;   // 붙어서기 직전까지
-    MoveDist = FMath::Min(MoveDist, CurrentStepIn.MaxStep);   // 한 타에 좁힐 수 있는 최대
+    // 타겟을 바라보는 목표 회전(Yaw만) — 가까워서 이동이 없어도 회전은 하도록
+    StepInTargetRot = FRotator(0.f, Dir.Rotation().Yaw, 0.f);
+
+    // 정지 거리보다 멀면 그만큼 접근(최대 MaxStep), 가까우면 이동 0(회전만)
+    const float MoveDist = (Dist > CurrentStepIn.StopDistance)
+        ? FMath::Min(Dist - CurrentStepIn.StopDistance, CurrentStepIn.MaxStep)
+        : 0.f;
 
     StepInStartLoc = SelfLoc;
     StepInEndLoc = SelfLoc + Dir * MoveDist;
@@ -430,6 +431,13 @@ void UGA_Combo::StepInTick()
     NewLoc.Z = Char->GetActorLocation().Z;   // 수직은 그대로(지면 따라감)
 
     Char->SetActorLocation(NewLoc, true);    // sweep=true: 벽/적 충돌 존중
+
+    // 타겟을 바라보게 회전(Yaw만 부드럽게)
+    if (CurrentStepIn.RotateSpeed > 0.f)
+    {
+        const FRotator NewRot = FMath::RInterpTo(Char->GetActorRotation(), StepInTargetRot, 0.016f, CurrentStepIn.RotateSpeed);
+        Char->SetActorRotation(FRotator(0.f, NewRot.Yaw, 0.f));
+    }
 
     if (Alpha >= 1.f)
     {

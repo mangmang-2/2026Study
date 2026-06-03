@@ -1,7 +1,10 @@
 #include "EnemyCharacter.h"
 #include "GAS/CombatAbilitySystemComponent.h"
 #include "GAS/CombatAttributeSet.h"
+#include "GAS/GA_EnemyAttack.h"
+#include "Combat/EnemyCombatController.h"
 #include "Abilities/GameplayAbility.h"
+#include "GameFramework/CharacterMovementComponent.h"
 
 AEnemyCharacter::AEnemyCharacter()
 {
@@ -10,6 +13,19 @@ AEnemyCharacter::AEnemyCharacter()
     AbilitySystemComponent->SetReplicationMode(EGameplayEffectReplicationMode::Mixed);
 
     AttributeSet = CreateDefaultSubobject<UCombatAttributeSet>(TEXT("AttributeSet"));
+
+    // 전투 AI 컨트롤러 자동 빙의(배치/스폰 모두)
+    AIControllerClass = AEnemyCombatController::StaticClass();
+    AutoPossessAI = EAutoPossessAI::PlacedInWorldOrSpawned;
+
+    // AI가 컨트롤러에서 직접 회전을 잡으므로 이동방향 자동회전 끔
+    bUseControllerRotationYaw = false;
+    if (UCharacterMovementComponent* Move = GetCharacterMovement())
+    {
+        Move->bOrientRotationToMovement = false;
+    }
+
+    AttackAbilityClass = UGA_EnemyAttack::StaticClass();
 }
 
 UAbilitySystemComponent* AEnemyCharacter::GetAbilitySystemComponent() const
@@ -71,5 +87,12 @@ void AEnemyCharacter::InitAbilitySystem()
             AbilitySystemComponent->GiveAbility(FGameplayAbilitySpec(AbilityClass, 1, INDEX_NONE, this));
         }
     }
+
+    // AI 공격 어빌리티 부여(AI 컨트롤러가 TryActivateAbilityByClass로 발동)
+    if (AttackAbilityClass)
+    {
+        AbilitySystemComponent->GiveAbility(FGameplayAbilitySpec(AttackAbilityClass, 1, INDEX_NONE, this));
+    }
+
     bAbilitiesGranted = true;
 }

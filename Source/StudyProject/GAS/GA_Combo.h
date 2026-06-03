@@ -154,6 +154,7 @@ private:
     FTimerHandle StepInTimerHandle;
     FVector StepInStartLoc = FVector::ZeroVector;
     FVector StepInEndLoc = FVector::ZeroVector;
+    FRotator StepInTargetRot = FRotator::ZeroRotator;   // 타겟을 바라보는 목표 회전(Yaw)
     float StepInElapsed = 0.f;
 
     // 자기 체공 상태

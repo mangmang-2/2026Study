@@ -5,7 +5,11 @@
 #include "Inventory/InventoryComponent.h"
 #include "Subsystem/ItemSubsystem.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Components/StaticMeshComponent.h"
+#include "NiagaraComponent.h"
+#include "NiagaraSystem.h"
 #include "Engine/SkeletalMesh.h"
+#include "Engine/StaticMesh.h"
 #include "Engine/World.h"
 #include "Engine/GameInstance.h"
 
@@ -83,6 +87,7 @@ void UEquipmentComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& 
 {
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);
     DOREPLIFETIME(UEquipmentComponent, EquippedItems);
+    DOREPLIFETIME(UEquipmentComponent, WeaponEnhanceLevel);
 }
 
 bool UEquipmentComponent::Equip(int32 ItemID, int32 FromInventorySlot)
@@ -101,8 +106,14 @@ bool UEquipmentComponent::Equip(int32 ItemID, int32 FromInventorySlot)
             if (InvComp) InvComp->AddItem(OldID, 1);
         }
 
-        // 인벤에서 제거 후 장착
+        // 무기면 강화 레벨을 캡처(인벤에서 제거되기 전에) — 오라 VFX 표시에 사용
         UInventoryComponent* InvComp = GetOwner()->FindComponentByClass<UInventoryComponent>();
+        if (Data->EquipSlot == EEquipSlot::Weapon)
+        {
+            WeaponEnhanceLevel = InvComp ? InvComp->GetSlot(FromInventorySlot).EnhanceLevel : 0;
+        }
+
+        // 인벤에서 제거 후 장착
         if (InvComp) InvComp->RemoveItem(FromInventorySlot, 1);
 
         EquippedItems.Set(Data->EquipSlot, ItemID);
@@ -207,6 +218,26 @@ void UEquipmentComponent::Server_Unequip_Implementation(EEquipSlot Slot)
     Unequip(Slot);
 }
 
+void UEquipmentComponent::EnhanceEquippedWeapon(int32 Delta)
+{
+    if (GetOwner()->HasAuthority())
+    {
+        if (EquippedItems.Get(EEquipSlot::Weapon) == 0)
+        {
+            return;   // 무기 없음
+        }
+        WeaponEnhanceLevel = FMath::Clamp(WeaponEnhanceLevel + Delta, 0, 10);
+        UpdateWeaponAura();   // 서버(호스트) 본인 갱신 — 클라는 OnRep로
+        return;
+    }
+    Server_EnhanceEquippedWeapon(Delta);
+}
+
+void UEquipmentComponent::Server_EnhanceEquippedWeapon_Implementation(int32 Delta)
+{
+    EnhanceEquippedWeapon(Delta);
+}
+
 void UEquipmentComponent::ApplyMeshForSlot(EEquipSlot Slot, int32 ItemID)
 {
     ACharacterBase* Char = Cast<ACharacterBase>(GetOwner());
@@ -241,6 +272,24 @@ void UEquipmentComponent::ApplyMeshForSlot(EEquipSlot Slot, int32 ItemID)
         return;
     }
 
+    // 무기 슬롯에 스태틱 메시가 지정돼 있으면 스태틱 메시 컴포넌트로 장착
+    if (Slot == EEquipSlot::Weapon && !Data->ItemStaticMesh.IsNull())
+    {
+        // 스켈레탈 무기 메시는 비우고, 스태틱 메시를 손 소켓에 부착
+        Target->SetSkeletalMeshAsset(nullptr);
+        if (Char->WeaponStaticMesh != nullptr)
+        {
+            Char->WeaponStaticMesh->SetStaticMesh(Data->ItemStaticMesh.LoadSynchronous());
+            Char->WeaponStaticMesh->AttachToComponent(Char->GetMesh(),
+                FAttachmentTransformRules::SnapToTargetIncludingScale, WeaponSocketName);
+            // 그립 정렬: 손잡이가 손에 오도록 상대 트랜스폼 적용(스태틱은 피벗이 중앙)
+            Char->WeaponStaticMesh->SetRelativeTransform(Data->GripTransform);
+            Char->WeaponStaticMesh->SetVisibility(true);
+        }
+        UpdateWeaponAura();
+        return;
+    }
+
     USkeletalMesh* Mesh = Data->ItemMesh.LoadSynchronous();
     Target->SetSkeletalMeshAsset(Mesh);
 
@@ -251,11 +300,56 @@ void UEquipmentComponent::ApplyMeshForSlot(EEquipSlot Slot, int32 ItemID)
         Target->SetLeaderPoseComponent(nullptr);
         Target->AttachToComponent(Char->GetMesh(),
             FAttachmentTransformRules::SnapToTargetIncludingScale, SocketName);
+
+        // 스켈레탈 무기로 교체됐으면 스태틱 무기 메시는 숨김
+        if (Slot == EEquipSlot::Weapon && Char->WeaponStaticMesh != nullptr)
+        {
+            Char->WeaponStaticMesh->SetStaticMesh(nullptr);
+        }
     }
     else
     {
         // 머리/상의 방어구: 베이스 바디 스켈레톤을 따라가는 Leader Pose
         Target->SetLeaderPoseComponent(Char->GetMesh());
+    }
+
+    if (Slot == EEquipSlot::Weapon)
+    {
+        UpdateWeaponAura();
+    }
+}
+
+void UEquipmentComponent::UpdateWeaponAura()
+{
+    ACharacterBase* Char = Cast<ACharacterBase>(GetOwner());
+    if (Char == nullptr || Char->WeaponAuraVFX == nullptr)
+    {
+        return;
+    }
+
+    const int32 WeaponID = EquippedItems.Get(EEquipSlot::Weapon);
+    UItemSubsystem* ItemSub = GetWorld() ? GetWorld()->GetGameInstance()->GetSubsystem<UItemSubsystem>() : nullptr;
+    const FItemData* Data = (ItemSub && WeaponID != 0) ? ItemSub->GetItemData(WeaponID) : nullptr;
+
+    // 강화 레벨>0 + 아이템에 EnhanceVFX가 있으면 무기 메시에 붙여 재생, 아니면 끔
+    UNiagaraSystem* VFX = (Data && WeaponEnhanceLevel > 0) ? Data->EnhanceVFX.LoadSynchronous() : nullptr;
+    if (VFX != nullptr)
+    {
+        // 스태틱 무기면 스태틱 메시에, 아니면 스켈레탈 무기 메시에 부착
+        USceneComponent* AttachTo = (Data && !Data->ItemStaticMesh.IsNull())
+            ? Cast<USceneComponent>(Char->WeaponStaticMesh)
+            : Cast<USceneComponent>(Char->WeaponMesh);
+        if (AttachTo != nullptr)
+        {
+            Char->WeaponAuraVFX->AttachToComponent(AttachTo, FAttachmentTransformRules::SnapToTargetIncludingScale);
+        }
+        Char->WeaponAuraVFX->SetAsset(VFX);
+        Char->WeaponAuraVFX->Activate(true);
+    }
+    else
+    {
+        Char->WeaponAuraVFX->Deactivate();
+        Char->WeaponAuraVFX->SetAsset(nullptr);
     }
 }
 
@@ -287,4 +381,24 @@ void UEquipmentComponent::ClearMeshForSlot(EEquipSlot Slot)
     }
 
     Target->SetSkeletalMeshAsset(nullptr);
+
+    // 무기 해제: 스태틱 메시·오라도 정리
+    if (Slot == EEquipSlot::Weapon)
+    {
+        if (Char->WeaponStaticMesh != nullptr)
+        {
+            Char->WeaponStaticMesh->SetStaticMesh(nullptr);
+        }
+        WeaponEnhanceLevel = 0;
+        if (Char->WeaponAuraVFX != nullptr)
+        {
+            Char->WeaponAuraVFX->Deactivate();
+            Char->WeaponAuraVFX->SetAsset(nullptr);
+        }
+    }
+}
+
+void UEquipmentComponent::OnRep_WeaponEnhanceLevel()
+{
+    UpdateWeaponAura();
 }

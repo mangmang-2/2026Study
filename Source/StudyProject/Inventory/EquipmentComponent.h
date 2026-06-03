@@ -60,6 +60,13 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Equipment")
     int32 GetEquippedItemID(EEquipSlot Slot) const;
 
+    // 장착한 무기를 직접 강화(레벨 +Delta) → 즉시 오라 VFX 갱신(서버 권위, 모든 클라 복제).
+    UFUNCTION(BlueprintCallable, Category = "Equipment")
+    void EnhanceEquippedWeapon(int32 Delta = 1);
+
+    UFUNCTION(BlueprintCallable, Category = "Equipment")
+    int32 GetWeaponEnhanceLevel() const { return WeaponEnhanceLevel; }
+
     UFUNCTION(BlueprintCallable, Category = "Equipment")
     bool IsSlotOccupied(EEquipSlot Slot) const;
 
@@ -82,6 +89,13 @@ protected:
     UFUNCTION()
     void OnRep_EquippedItems();
 
+    // 장착한 무기의 강화 레벨(>0이면 오라 VFX 표시). 장착 시 인벤 슬롯에서 캡처.
+    UPROPERTY(ReplicatedUsing = OnRep_WeaponEnhanceLevel)
+    int32 WeaponEnhanceLevel = 0;
+
+    UFUNCTION()
+    void OnRep_WeaponEnhanceLevel();
+
 private:
     UFUNCTION(Server, Reliable)
     void Server_Equip(int32 ItemID, int32 FromInventorySlot);
@@ -89,6 +103,12 @@ private:
     UFUNCTION(Server, Reliable)
     void Server_Unequip(EEquipSlot Slot);
 
+    UFUNCTION(Server, Reliable)
+    void Server_EnhanceEquippedWeapon(int32 Delta);
+
     void ApplyMeshForSlot(EEquipSlot Slot, int32 ItemID);
     void ClearMeshForSlot(EEquipSlot Slot);
+
+    // 장착 무기 강화 레벨/아이템에 따라 오라 VFX 갱신
+    void UpdateWeaponAura();
 };

@@ -50,5 +50,9 @@ protected:
     UPROPERTY(EditDefaultsOnly, Category = "Combat")
     float StartingMaxHP = 1000.f;
 
+    // AI가 사용할 공격 어빌리티(서버에서 부여). 기본 GA_EnemyAttack.
+    UPROPERTY(EditDefaultsOnly, Category = "Combat")
+    TSubclassOf<UGameplayAbility> AttackAbilityClass;
+
     bool bAbilitiesGranted = false;
 };

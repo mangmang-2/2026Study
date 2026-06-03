@@ -15,6 +15,8 @@ class UCombatAbilitySystemComponent;
 class UCombatAttributeSet;
 class UGameplayAbility;
 class UGameplayEffect;
+class UStaticMeshComponent;
+class UNiagaraComponent;
 
 UCLASS()
 class STUDYPROJECT_API ACharacterBase : public ACharacter, public IAbilitySystemInterface
@@ -26,6 +28,22 @@ public:
 
     // IAbilitySystemInterface
     virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
+
+    // 타격 피드백(히트VFX + 피격자 플래시 + 데미지넘버)을 모든 클라이언트에 재생.
+    // 서버 권위에서만 호출 → 멀티 동기화. 데미지넘버는 각 클라 로컬 플레이어 화면에만 표시.
+    UFUNCTION(NetMulticast, Unreliable)
+    void Multicast_HitFeedback(class UNiagaraSystem* VFX, FVector Location, FVector Normal,
+        AActor* Victim, int32 Damage, bool bCritical);
+
+protected:
+    // 피격 시 피격자 메시에 잠깐 씌우는 흰색 플래시 오버레이 머티리얼
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Combat|FX")
+    TObjectPtr<class UMaterialInterface> HitFlashMaterial;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Combat|FX")
+    float HitFlashDuration = 0.08f;
+
+public:
 
     UCombatAttributeSet* GetCombatAttributeSet() const { return AttributeSet; }
 
@@ -85,6 +103,14 @@ public:
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mesh")
     TObjectPtr<USkeletalMeshComponent> ShieldMesh;
+
+    // 스태틱 메시 무기용(스태틱 무기 장착 시 사용)
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mesh")
+    TObjectPtr<UStaticMeshComponent> WeaponStaticMesh;
+
+    // 강화 무기 오라 VFX(장착 무기에 부착)
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mesh")
+    TObjectPtr<UNiagaraComponent> WeaponAuraVFX;
 
 protected:
     virtual void BeginPlay() override;

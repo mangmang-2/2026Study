@@ -9,6 +9,7 @@
 #include "UObject/ConstructorHelpers.h"
 #include "Inventory/TradeComponent.h"
 #include "Inventory/InventoryComponent.h"
+#include "Inventory/EquipmentComponent.h"
 #include "GAS/CombatAbilitySystemComponent.h"
 #include "GAS/StudyGameplayTags.h"
 #include "Combat/LockOnComponent.h"
@@ -26,6 +27,9 @@
 #include "Subsystem/ItemSubsystem.h"
 #include "Engine/GameInstance.h"
 #include "Engine/DataTable.h"
+#include "Engine/World.h"
+#include "Character/EnemyCharacter.h"
+#include "UI/HUD/EnemySpawnerWidget.h"
 
 namespace
 {
@@ -121,6 +125,13 @@ APlayerCharacter::APlayerCharacter()
         TEXT("/Game/UI/HUD/WBP_SPBar"));
     if (SPBarWBPFinder.Succeeded()) SPBarWidgetClass = SPBarWBPFinder.Class;
 
+    // 디버그 스폰 기본값
+    static ConstructorHelpers::FClassFinder<AActor> EnemyBPFinder(TEXT("/Game/Blueprints/BP_Enemy"));
+    if (EnemyBPFinder.Succeeded()) TestEnemyClass = EnemyBPFinder.Class;
+    static ConstructorHelpers::FClassFinder<AActor> BossBPFinder(TEXT("/Game/Blueprints/BP_Boss"));
+    if (BossBPFinder.Succeeded()) BossSpawnClass = BossBPFinder.Class;
+    SpawnerWidgetClass = UEnemySpawnerWidget::StaticClass();
+
     PrimaryActorTick.bCanEverTick = true;   // 프롬프트 위치 추적용
 }
 
@@ -156,6 +167,16 @@ void APlayerCharacter::BeginPlay()
         if (SPBarWidget)
         {
             SPBarWidget->AddToViewport(1);
+        }
+    }
+
+    // 디버그 적/보스 스폰 위젯(우상단). 콘솔 ToggleSpawner로 표시/숨김
+    if (IsLocallyControlled() && SpawnerWidgetClass)
+    {
+        SpawnerWidget = CreateWidget<UUserWidget>(PC, SpawnerWidgetClass);
+        if (SpawnerWidget)
+        {
+            SpawnerWidget->AddToViewport(3);
         }
     }
 
@@ -267,6 +288,10 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
     if (DodgeAction)
     {
         EIC->BindAction(DodgeAction, ETriggerEvent::Started, this, &APlayerCharacter::HandleDodge);
+    }
+    if (ParryAction)
+    {
+        EIC->BindAction(ParryAction, ETriggerEvent::Started, this, &APlayerCharacter::HandleParry);
     }
 }
 
@@ -508,6 +533,21 @@ void APlayerCharacter::HandleDodge()
     ASC->TryActivateAbilityByInputTag(StudyTags::Input_Dodge);
 }
 
+void APlayerCharacter::HandleParry()
+{
+    UCombatAbilitySystemComponent* ASC = Cast<UCombatAbilitySystemComponent>(GetAbilitySystemComponent());
+    if (ASC == nullptr)
+    {
+        return;
+    }
+    ASC->TryActivateAbilityByInputTag(StudyTags::Input_Parry);
+}
+
+void APlayerCharacter::DebugParry()
+{
+    HandleParry();
+}
+
 void APlayerCharacter::HandleSprintStart()
 {
     bIsSprinting = true;
@@ -720,6 +760,61 @@ void APlayerCharacter::DebugTradeNearest()
     else
     {
         UE_LOG(LogTemp, Warning, TEXT("[Trade] 거래할 다른 플레이어가 없습니다(2인 플레이 필요)."));
+    }
+}
+
+void APlayerCharacter::EnhanceWeapon()
+{
+    if (UEquipmentComponent* Equip = GetEquipmentComponent())
+    {
+        Equip->EnhanceEquippedWeapon(1);
+    }
+}
+
+// ── 디버그 스폰 ──────────────────────────────────────────────────────────────
+
+void APlayerCharacter::SpawnTestEnemy()
+{
+    if (!HasAuthority()) { Server_SpawnTestEnemy(); return; }
+    if (TestEnemyClass == nullptr || GetWorld() == nullptr) { return; }
+    const FVector Loc = GetActorLocation() + GetActorForwardVector() * 450.f + FVector(0.f, 0.f, 60.f);
+    const FRotator Rot = GetActorRotation() + FRotator(0.f, 180.f, 0.f);
+    FActorSpawnParameters Params;
+    Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+    GetWorld()->SpawnActor<AActor>(TestEnemyClass, Loc, Rot, Params);
+}
+void APlayerCharacter::Server_SpawnTestEnemy_Implementation() { SpawnTestEnemy(); }
+
+void APlayerCharacter::SpawnTestBoss()
+{
+    if (!HasAuthority()) { Server_SpawnTestBoss(); return; }
+    if (BossSpawnClass == nullptr || GetWorld() == nullptr) { return; }
+    const FVector Loc = GetActorLocation() + GetActorForwardVector() * 600.f + FVector(0.f, 0.f, 90.f);
+    const FRotator Rot = GetActorRotation() + FRotator(0.f, 180.f, 0.f);
+    FActorSpawnParameters Params;
+    Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+    GetWorld()->SpawnActor<AActor>(BossSpawnClass, Loc, Rot, Params);
+}
+void APlayerCharacter::Server_SpawnTestBoss_Implementation() { SpawnTestBoss(); }
+
+void APlayerCharacter::ClearAllEnemies()
+{
+    if (!HasAuthority()) { Server_ClearEnemies(); return; }
+    TArray<AActor*> Enemies;
+    UGameplayStatics::GetAllActorsOfClass(this, AEnemyCharacter::StaticClass(), Enemies);
+    for (AActor* E : Enemies)
+    {
+        if (E) { E->Destroy(); }
+    }
+}
+void APlayerCharacter::Server_ClearEnemies_Implementation() { ClearAllEnemies(); }
+
+void APlayerCharacter::ToggleSpawner()
+{
+    if (SpawnerWidget)
+    {
+        const bool bSpawnerHidden = (SpawnerWidget->GetVisibility() == ESlateVisibility::Collapsed);
+        SpawnerWidget->SetVisibility(bSpawnerHidden ? ESlateVisibility::Visible : ESlateVisibility::Collapsed);
     }
 }
 

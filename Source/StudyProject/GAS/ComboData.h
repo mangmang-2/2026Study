@@ -66,6 +66,10 @@ struct STUDYPROJECT_API FComboStepIn
     // 한 타에서 좁힐 수 있는 최대 거리(넉백으로 밀린 적을 쫓아가려면 크게)
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "StepIn")
     float MaxStep = 350.f;
+
+    // 타겟을 바라보게 회전하는 속도(0=회전 안 함). 클수록 빨리 돌아봄.
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "StepIn")
+    float RotateSpeed = 15.f;
 };
 
 /**

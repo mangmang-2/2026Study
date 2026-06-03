@@ -4,6 +4,9 @@
 #include "Engine/DataTable.h"
 #include "ItemData.generated.h"
 
+class UStaticMesh;
+class UNiagaraSystem;
+
 UENUM(BlueprintType)
 enum class EItemType : uint8
 {
@@ -87,10 +90,23 @@ struct STUDYPROJECT_API FItemData : public FTableRowBase
     float CooldownTime = 0.f;
     UPROPERTY(EditAnywhere, BlueprintReadOnly) 
     int32 HealAmount = 0;
-    UPROPERTY(EditAnywhere, BlueprintReadOnly) 
+    UPROPERTY(EditAnywhere, BlueprintReadOnly)
     TSoftObjectPtr<UTexture2D> Icon;
-    UPROPERTY(EditAnywhere, BlueprintReadOnly) 
+    UPROPERTY(EditAnywhere, BlueprintReadOnly)
     TSoftObjectPtr<USkeletalMesh> ItemMesh;
+
+    // 스태틱 메시 무기용(ItemMesh 대신 사용). 둘 중 하나만 채우면 됨.
+    UPROPERTY(EditAnywhere, BlueprintReadOnly)
+    TSoftObjectPtr<UStaticMesh> ItemStaticMesh;
+
+    // 무기 손소켓 부착 시 적용할 상대 트랜스폼(그립 정렬). 스태틱 무기는 피벗이 중앙이라
+    // 손잡이가 손에 오도록 Translation/Rotation을 조정. 기본=항등(중앙 잡음).
+    UPROPERTY(EditAnywhere, BlueprintReadOnly)
+    FTransform GripTransform;
+
+    // 강화(레벨>0) 시 무기에 붙는 오라 VFX(나이아가라). 비우면 없음.
+    UPROPERTY(EditAnywhere, BlueprintReadOnly)
+    TSoftObjectPtr<UNiagaraSystem> EnhanceVFX;
 };
 
 USTRUCT(BlueprintType)

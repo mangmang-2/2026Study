@@ -51,6 +51,28 @@ public:
     UFUNCTION(Exec)
     void DebugTradeNearest();
 
+    // 콘솔 커맨드: 장착 무기 강화 +1 (오라 VFX 즉시 테스트용)
+    UFUNCTION(Exec)
+    void EnhanceWeapon();
+
+    // 콘솔 커맨드: 패리 발동(IMC 매핑 전 테스트용)
+    UFUNCTION(Exec)
+    void DebugParry();
+
+    // ── 디버그 스폰(스폰 위젯 버튼/콘솔에서 호출) ─────────────────────
+    UFUNCTION(BlueprintCallable, Category = "Debug")
+    void SpawnTestEnemy();
+
+    UFUNCTION(BlueprintCallable, Category = "Debug")
+    void SpawnTestBoss();
+
+    UFUNCTION(BlueprintCallable, Category = "Debug")
+    void ClearAllEnemies();
+
+    // 콘솔: 스폰 위젯 표시/숨김 토글
+    UFUNCTION(Exec)
+    void ToggleSpawner();
+
 protected:
     // ── 카메라 ────────────────────────────────────────────────────────
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
@@ -113,6 +135,9 @@ protected:
     UPROPERTY(EditDefaultsOnly, Category = "Input|Phase2")
     TObjectPtr<UInputAction> FinisherAction;
 
+    UPROPERTY(EditDefaultsOnly, Category = "Input|Phase2")
+    TObjectPtr<UInputAction> ParryAction;   // 저스트카운터(패리). IMC 매핑은 사용자가 연결
+
     // ── UI 위젯 클래스 ────────────────────────────────────────────────
     UPROPERTY(EditDefaultsOnly, Category = "UI")
     TSubclassOf<UHUDWidget> HUDWidgetClass;
@@ -141,6 +166,16 @@ protected:
 
     UPROPERTY(EditDefaultsOnly, Category = "UI")
     TSubclassOf<UUserWidget> InteractionPromptClass;   // 머리 위 F 프롬프트 (HUD-follow)
+
+    // ── 디버그 스폰 ──────────────────────────────────────────────────
+    UPROPERTY(EditDefaultsOnly, Category = "Debug")
+    TSubclassOf<AActor> TestEnemyClass;   // BP_Enemy
+
+    UPROPERTY(EditDefaultsOnly, Category = "Debug")
+    TSubclassOf<AActor> BossSpawnClass;   // BP_Boss
+
+    UPROPERTY(EditDefaultsOnly, Category = "Debug")
+    TSubclassOf<UUserWidget> SpawnerWidgetClass;   // UEnemySpawnerWidget
 
     // ── 컴포넌트 ─────────────────────────────────────────────────────
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
@@ -184,6 +219,7 @@ private:
     void HandleLauncher(); // 공중 띄우기
     void HandleFinisher(); // 처형
     void HandleDodge();
+    void HandleParry();    // 저스트카운터(패리)
     void HandleLockOn();   // 록온 토글
     void HandleLockOnSwitch(const FInputActionValue& Value); // 타겟 좌우 전환
 
@@ -233,6 +269,13 @@ private:
 
     UFUNCTION(Server, Reliable)
     void Server_DebugDropItem(int32 ItemID, int32 Quantity);
+
+    UFUNCTION(Server, Reliable) void Server_SpawnTestEnemy();
+    UFUNCTION(Server, Reliable) void Server_SpawnTestBoss();
+    UFUNCTION(Server, Reliable) void Server_ClearEnemies();
+
+    UPROPERTY()
+    TObjectPtr<UUserWidget> SpawnerWidget = nullptr;
 
     UPROPERTY() 
     TObjectPtr<AActor> LastFocusedActor = nullptr;
