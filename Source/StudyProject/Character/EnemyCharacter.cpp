@@ -5,6 +5,8 @@
 #include "Combat/EnemyCombatController.h"
 #include "Abilities/GameplayAbility.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Components/CapsuleComponent.h"
+#include "Components/SkeletalMeshComponent.h"
 
 AEnemyCharacter::AEnemyCharacter()
 {
@@ -26,6 +28,10 @@ AEnemyCharacter::AEnemyCharacter()
     }
 
     AttackAbilityClass = UGA_EnemyAttack::StaticClass();
+
+    // 카메라가 적 몸에 붙어 당겨지지 않게 Camera 채널 무시
+    GetCapsuleComponent()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECR_Ignore);
+    GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECR_Ignore);
 }
 
 UAbilitySystemComponent* AEnemyCharacter::GetAbilitySystemComponent() const

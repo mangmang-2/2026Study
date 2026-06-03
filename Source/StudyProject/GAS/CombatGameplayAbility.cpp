@@ -101,6 +101,12 @@ bool UCombatGameplayAbility::ApplyMeleeDamage(float DamageAmount, FGameplayTag E
             continue;
         }
 
+        // 이미 죽은 대상은 더 이상 때리지 않음(시체 타격 방지)
+        if (TargetASC->HasMatchingGameplayTag(StudyTags::State_Dead))
+        {
+            continue;
+        }
+
         // ── 저스트카운터(패리) 가로채기 ────────────────────────────────
         // 타깃이 패리 윈도우 중이고 공격자를 바라보고 있으면: 데미지/넉백/히트스톱 전부 무효 +
         // 공격자에게 Event.Staggered(경직) + 패리한 쪽에 Event.Parried(리포스트 발동) 전송.

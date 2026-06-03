@@ -25,9 +25,13 @@ void AEnemyCombatController::Tick(float DeltaSeconds)
         return;
     }
 
-    // 사망 시 정지
+    // 행동 불가 상태(사망/공중·넉다운/경직/피격)면 AI 완전 정지 — 따라다니거나 바라보지도 않음
     UAbilitySystemComponent* ASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(Enemy);
-    if (ASC != nullptr && ASC->HasMatchingGameplayTag(StudyTags::State_Dead))
+    if (ASC != nullptr &&
+        (ASC->HasMatchingGameplayTag(StudyTags::State_Dead)
+         || ASC->HasMatchingGameplayTag(StudyTags::State_AirBorne)
+         || ASC->HasMatchingGameplayTag(StudyTags::Status_Staggered)
+         || ASC->HasMatchingGameplayTag(StudyTags::State_HitReact)))
     {
         return;
     }

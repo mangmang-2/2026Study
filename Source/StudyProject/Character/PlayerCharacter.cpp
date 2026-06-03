@@ -489,6 +489,11 @@ void APlayerCharacter::HandleLauncher()
     {
         return;
     }
+    // 공중에선 런처 금지(연속 우클릭으로 계속 떠오르는 문제 방지) — 지상에서만 발동
+    if (GetCharacterMovement() != nullptr && GetCharacterMovement()->IsFalling())
+    {
+        return;
+    }
     ASC->TryActivateAbilityByInputTag(StudyTags::Input_Launcher);
 }
 

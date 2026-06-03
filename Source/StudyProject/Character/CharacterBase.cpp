@@ -11,6 +11,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Components/CapsuleComponent.h"
 #include "NiagaraComponent.h"
 #include "NiagaraFunctionLibrary.h"
 #include "NiagaraSystem.h"
@@ -64,6 +65,10 @@ ACharacterBase::ACharacterBase()
     WeaponAuraVFX = CreateDefaultSubobject<UNiagaraComponent>(TEXT("WeaponAuraVFX"));
     WeaponAuraVFX->SetupAttachment(GetMesh());
     WeaponAuraVFX->SetAutoActivate(false);
+
+    // 카메라(SpringArm 프로브)가 다른 캐릭터 몸에 붙어 당겨지지 않게 Camera 채널 무시(벽 충돌은 유지)
+    GetCapsuleComponent()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECR_Ignore);
+    GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECR_Ignore);
 }
 
 void ACharacterBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
