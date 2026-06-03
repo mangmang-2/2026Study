@@ -101,8 +101,9 @@ bool UCombatGameplayAbility::ApplyMeleeDamage(float DamageAmount, FGameplayTag E
             continue;
         }
 
-        // 이미 죽은 대상은 더 이상 때리지 않음(시체 타격 방지)
-        if (TargetASC->HasMatchingGameplayTag(StudyTags::State_Dead))
+        // 이미 죽었거나 쓰러진(넉다운) 대상은 더 이상 때리지 않음
+        if (TargetASC->HasMatchingGameplayTag(StudyTags::State_Dead)
+            || TargetASC->HasMatchingGameplayTag(StudyTags::State_Knockdown))
         {
             continue;
         }

@@ -225,17 +225,22 @@ private:
 
     // UI 열기/닫기
     void OpenInventory();
-    UFUNCTION() void CloseInventory();
+    UFUNCTION() 
+    void CloseInventory();
     void OpenPauseMenu();
     void ClosePauseMenu();
     void OpenEnhance();
-    UFUNCTION() void CloseEnhance();
+    UFUNCTION() 
+    void CloseEnhance();
     void OpenShop(int32 ShopID);
-    UFUNCTION() void CloseShop();
+    UFUNCTION() 
+    void CloseShop();
     void OpenTradeScreen();
     void CloseTradeScreen();
-    UFUNCTION() void HandleTradeUpdated();
-    UFUNCTION() void HandleTradeResult(bool bSuccess);
+    UFUNCTION() 
+    void HandleTradeUpdated();
+    UFUNCTION() 
+    void HandleTradeResult(bool bSuccess);
     void SwitchToUIInput();
     void SwitchToGameInput();
 
@@ -270,9 +275,12 @@ private:
     UFUNCTION(Server, Reliable)
     void Server_DebugDropItem(int32 ItemID, int32 Quantity);
 
-    UFUNCTION(Server, Reliable) void Server_SpawnTestEnemy();
-    UFUNCTION(Server, Reliable) void Server_SpawnTestBoss();
-    UFUNCTION(Server, Reliable) void Server_ClearEnemies();
+    UFUNCTION(Server, Reliable) 
+    void Server_SpawnTestEnemy();
+    UFUNCTION(Server, Reliable) 
+    void Server_SpawnTestBoss();
+    UFUNCTION(Server, Reliable) 
+    void Server_ClearEnemies();
 
     UPROPERTY()
     TObjectPtr<UUserWidget> SpawnerWidget = nullptr;

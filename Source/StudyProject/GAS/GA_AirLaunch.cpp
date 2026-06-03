@@ -1,5 +1,6 @@
 #include "GA_AirLaunch.h"
 #include "StudyGameplayTags.h"
+#include "AbilitySystemComponent.h"
 #include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -125,6 +126,12 @@ void UGA_AirLaunch::OnLanded(const FHitResult& Hit)
     // 땅에 닿았으니 원래 중력으로 복원
     RestoreGravity();
 
+    // 넉다운(쓰러져 일어나는 중) 상태 표시 — 이 동안엔 타격 불가
+    if (UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo())
+    {
+        ASC->AddLooseGameplayTag(StudyTags::State_Knockdown);
+    }
+
     if (KnockdownMontage == nullptr)
     {
         OnKnockdownFinished();
@@ -178,6 +185,11 @@ void UGA_AirLaunch::OnKnockdownFinished()
 
 void UGA_AirLaunch::OnGetUpFinished()
 {
+    // 기상 완료 — 넉다운 상태 해제(다시 타격 가능)
+    if (UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo())
+    {
+        ASC->RemoveLooseGameplayTag(StudyTags::State_Knockdown);
+    }
     EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
 }
 
@@ -265,5 +277,9 @@ void UGA_AirLaunch::EndAbility(
         Char->LandedDelegate.RemoveDynamic(this, &UGA_AirLaunch::OnLanded);
     }
     RestoreGravity();
+    if (UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo())
+    {
+        ASC->RemoveLooseGameplayTag(StudyTags::State_Knockdown);   // 취소돼도 넉다운 태그 잔류 방지
+    }
     Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }

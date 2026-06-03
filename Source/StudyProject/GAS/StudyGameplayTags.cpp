@@ -8,6 +8,7 @@ namespace StudyTags
     UE_DEFINE_GAMEPLAY_TAG(State_Dodging,     "State.Dodging");
     UE_DEFINE_GAMEPLAY_TAG(State_HitReact,    "State.HitReact");
     UE_DEFINE_GAMEPLAY_TAG(State_AirBorne,    "State.AirBorne");
+    UE_DEFINE_GAMEPLAY_TAG(State_Knockdown,   "State.Knockdown");
     UE_DEFINE_GAMEPLAY_TAG(State_Finisher,    "State.Finisher");
     UE_DEFINE_GAMEPLAY_TAG(State_Dead,        "State.Dead");
 
