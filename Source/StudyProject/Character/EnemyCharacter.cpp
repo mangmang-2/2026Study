@@ -7,6 +7,8 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Engine/SkeletalMesh.h"
+#include "UObject/ConstructorHelpers.h"
 
 AEnemyCharacter::AEnemyCharacter()
 {
@@ -32,6 +34,22 @@ AEnemyCharacter::AEnemyCharacter()
     // 카메라가 적 몸에 붙어 당겨지지 않게 Camera 채널 무시
     GetCapsuleComponent()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECR_Ignore);
     GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECR_Ignore);
+
+    // 손 무기 — 오른손(hand_r) 본에 부착 + 플레이어 HandSocket_R과 동일한 상대 트랜스폼
+    WeaponMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("EnemyWeaponMesh"));
+    WeaponMesh->SetupAttachment(GetMesh(), TEXT("hand_r"));
+    WeaponMesh->SetRelativeLocation(FVector(-11.667f, 6.511f, 3.214f));
+    WeaponMesh->SetRelativeRotation(FRotator(-13.685f, 65.706f, -2.570f));
+    WeaponMesh->SetCollisionProfileName(TEXT("NoCollision"));
+    WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECR_Ignore);
+
+    static ConstructorHelpers::FObjectFinder<USkeletalMesh> WeaponFinder(
+        TEXT("/Game/SKnight_modular/Skeleton_Knight_07/mesh/weapon/SK_weapon.SK_weapon"));
+    if (WeaponFinder.Succeeded())
+    {
+        WeaponMeshAsset = WeaponFinder.Object;
+        WeaponMesh->SetSkeletalMeshAsset(WeaponMeshAsset);
+    }
 }
 
 UAbilitySystemComponent* AEnemyCharacter::GetAbilitySystemComponent() const

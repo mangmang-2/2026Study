@@ -9,6 +9,8 @@ class UCombatAbilitySystemComponent;
 class UCombatAttributeSet;
 class UGameplayAbility;
 class UGameplayEffect;
+class USkeletalMeshComponent;
+class USkeletalMesh;
 
 /**
  * GAS 기반 테스트용 적 캐릭터.
@@ -53,6 +55,13 @@ protected:
     // AI가 사용할 공격 어빌리티(서버에서 부여). 기본 GA_EnemyAttack.
     UPROPERTY(EditDefaultsOnly, Category = "Combat")
     TSubclassOf<UGameplayAbility> AttackAbilityClass;
+
+    // 손에 드는 무기 메시(오른손 hand_r 본에 부착). 플레이어 소켓과 동일한 상대 트랜스폼 적용.
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat")
+    TObjectPtr<USkeletalMeshComponent> WeaponMesh;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Combat")
+    TObjectPtr<USkeletalMesh> WeaponMeshAsset;
 
     bool bAbilitiesGranted = false;
 };
