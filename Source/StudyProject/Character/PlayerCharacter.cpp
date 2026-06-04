@@ -11,7 +11,16 @@
 #include "Inventory/InventoryComponent.h"
 #include "Inventory/EquipmentComponent.h"
 #include "GAS/CombatAbilitySystemComponent.h"
+#include "GAS/CombatAttributeSet.h"
 #include "GAS/StudyGameplayTags.h"
+#include "TimerManager.h"
+#include "GAS/GE_StatusBurning.h"
+#include "GAS/GE_StatusBleeding.h"
+#include "GAS/GE_StatusShocked.h"
+#include "GAS/GE_StatusChilled.h"
+#include "AbilitySystemComponent.h"
+#include "AbilitySystemBlueprintLibrary.h"
+#include "GameplayEffect.h"
 #include "Combat/LockOnComponent.h"
 #include "UI/HUD/HUDWidget.h"
 #include "UI/Dialogue/DialogueWidget.h"
@@ -138,6 +147,14 @@ APlayerCharacter::APlayerCharacter()
 void APlayerCharacter::BeginPlay()
 {
     Super::BeginPlay();
+
+    // 사망/리스폰: 초기 스폰 위치 저장 + HP 0(State.Dead) 감지
+    SpawnTransform = GetActorTransform();
+    if (UAbilitySystemComponent* DeathASC = GetAbilitySystemComponent())
+    {
+        DeathASC->RegisterGameplayTagEvent(StudyTags::State_Dead, EGameplayTagEventType::NewOrRemoved)
+            .AddUObject(this, &APlayerCharacter::OnDeathTagChanged);
+    }
 
     APlayerController* PC = Cast<APlayerController>(GetController());
     if (!PC) return;
@@ -305,7 +322,8 @@ void APlayerCharacter::HandleMove(const FInputActionValue& Value)
     // 공격/회피/처형 등 모션 중에는 실제 이동은 무시
     if (UCombatAbilitySystemComponent* ASC = Cast<UCombatAbilitySystemComponent>(GetAbilitySystemComponent()))
     {
-        if (ASC->IsMovementLocked())
+        // 모션 잠금 중이거나 감전(스턴) 상태면 이동 입력 무시
+        if (ASC->IsMovementLocked() || ASC->HasMatchingGameplayTag(StudyTags::Status_Shocked))
         {
             return;
         }
@@ -553,16 +571,179 @@ void APlayerCharacter::DebugParry()
     HandleParry();
 }
 
+// ── 상태이상 디버그(콘솔) ────────────────────────────────────────────────────
+// 록온 타깃(없으면 가장 가까운 적)에게 상태이상 GE를 부여. 서버 권위에서 적용.
+
+void APlayerCharacter::DebugBurn()
+{
+    ApplyDebugStatus(UGE_StatusBurning::StaticClass());
+}
+
+void APlayerCharacter::DebugBleed()
+{
+    ApplyDebugStatus(UGE_StatusBleeding::StaticClass());
+}
+
+void APlayerCharacter::DebugShock()
+{
+    ApplyDebugStatus(UGE_StatusShocked::StaticClass());
+}
+
+void APlayerCharacter::DebugChill()
+{
+    ApplyDebugStatus(UGE_StatusChilled::StaticClass());
+}
+
+AEnemyCharacter* APlayerCharacter::FindStatusTarget() const
+{
+    // 1순위: 록온 타깃이 적이면 그 대상
+    if (LockOnComp != nullptr)
+    {
+        if (AEnemyCharacter* Locked = Cast<AEnemyCharacter>(LockOnComp->GetCurrentTarget()))
+        {
+            return Locked;
+        }
+    }
+
+    // 2순위: 정면 우선 없이 단순 최근접 적(사거리 1200 내)
+    AEnemyCharacter* Best = nullptr;
+    float BestDistSq = 1200.f * 1200.f;
+    TArray<AActor*> Found;
+    UGameplayStatics::GetAllActorsOfClass(GetWorld(), AEnemyCharacter::StaticClass(), Found);
+    for (AActor* Actor : Found)
+    {
+        AEnemyCharacter* Enemy = Cast<AEnemyCharacter>(Actor);
+        if (Enemy == nullptr)
+        {
+            continue;
+        }
+        const float DistSq = FVector::DistSquared(Enemy->GetActorLocation(), GetActorLocation());
+        if (DistSq < BestDistSq)
+        {
+            BestDistSq = DistSq;
+            Best = Enemy;
+        }
+    }
+    return Best;
+}
+
+void APlayerCharacter::ApplyDebugStatus(TSubclassOf<UGameplayEffect> StatusGE)
+{
+    if (StatusGE == nullptr)
+    {
+        return;
+    }
+
+    // 상태이상 적용은 서버 권위 — 클라면 서버로 위임
+    if (HasAuthority() == false)
+    {
+        Server_ApplyDebugStatus(StatusGE);
+        return;
+    }
+
+    AEnemyCharacter* Target = FindStatusTarget();
+    if (Target == nullptr)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("[Status] 대상 적이 없습니다(록온 또는 1200 내 적 필요)."));
+        return;
+    }
+
+    UAbilitySystemComponent* TargetASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(Target);
+    if (TargetASC == nullptr)
+    {
+        return;
+    }
+
+    FGameplayEffectContextHandle Ctx = TargetASC->MakeEffectContext();
+    Ctx.AddInstigator(this, this);
+    FGameplayEffectSpecHandle Spec = TargetASC->MakeOutgoingSpec(StatusGE, 1.f, Ctx);
+    if (Spec.IsValid())
+    {
+        TargetASC->ApplyGameplayEffectSpecToSelf(*Spec.Data.Get());
+    }
+}
+
+void APlayerCharacter::Server_ApplyDebugStatus_Implementation(TSubclassOf<UGameplayEffect> StatusGE)
+{
+    ApplyDebugStatus(StatusGE);
+}
+
+// ── 사망 / 리스폰 ────────────────────────────────────────────────────────────
+
+void APlayerCharacter::OnDeathTagChanged(const FGameplayTag /*Tag*/, int32 NewCount)
+{
+    if (NewCount > 0)
+    {
+        HandleDeath();
+    }
+}
+
+void APlayerCharacter::HandleDeath()
+{
+    if (bIsDead)
+    {
+        return;
+    }
+    bIsDead = true;
+
+    // 입력/이동 정지
+    if (APlayerController* PC = Cast<APlayerController>(GetController()))
+    {
+        DisableInput(PC);
+    }
+    if (UCharacterMovementComponent* Move = GetCharacterMovement())
+    {
+        Move->StopMovementImmediately();
+        Move->DisableMovement();
+    }
+
+    // RespawnDelay 뒤 리스폰
+    if (UWorld* World = GetWorld())
+    {
+        World->GetTimerManager().SetTimer(RespawnTimer, this, &APlayerCharacter::Respawn, FMath::Max(0.1f, RespawnDelay), false);
+    }
+}
+
+void APlayerCharacter::Respawn()
+{
+    // 사망 태그 해제 + HP/SP 회복
+    if (UAbilitySystemComponent* ASC = GetAbilitySystemComponent())
+    {
+        ASC->RemoveLooseGameplayTag(StudyTags::State_Dead);
+    }
+    if (UCombatAttributeSet* Attr = GetCombatAttributeSet())
+    {
+        Attr->SetHP(Attr->GetMaxHP());
+        Attr->SetSP(Attr->GetMaxSP());
+    }
+
+    // 초기 스폰 위치로 복귀
+    SetActorTransform(SpawnTransform, false, nullptr, ETeleportType::TeleportPhysics);
+
+    // 이동/입력 복원
+    if (UCharacterMovementComponent* Move = GetCharacterMovement())
+    {
+        Move->SetMovementMode(MOVE_Walking);
+    }
+    if (APlayerController* PC = Cast<APlayerController>(GetController()))
+    {
+        EnableInput(PC);
+    }
+
+    bIsDead = false;
+}
+
 void APlayerCharacter::HandleSprintStart()
 {
     bIsSprinting = true;
-    GetCharacterMovement()->MaxWalkSpeed = 600.f;
+    // 직접 MaxWalkSpeed 대신 기준속도로 — 둔화/스턴 상태이상이 합성 반영됨
+    SetBaseWalkSpeed(600.f);
 }
 
 void APlayerCharacter::HandleSprintEnd()
 {
     bIsSprinting = false;
-    GetCharacterMovement()->MaxWalkSpeed = 300.f;
+    SetBaseWalkSpeed(300.f);
 }
 
 // ── UI 열기/닫기 ─────────────────────────────────────────────────────────────

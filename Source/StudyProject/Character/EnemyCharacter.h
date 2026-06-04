@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "AbilitySystemInterface.h"
+#include "GameplayTagContainer.h"
 #include "EnemyCharacter.generated.h"
 
 class UCombatAbilitySystemComponent;
@@ -11,6 +12,10 @@ class UGameplayAbility;
 class UGameplayEffect;
 class USkeletalMeshComponent;
 class USkeletalMesh;
+class UMaterialInterface;
+class UNiagaraSystem;
+class UNiagaraComponent;
+class UDecalComponent;
 
 /**
  * GAS 기반 테스트용 적 캐릭터.
@@ -27,6 +32,17 @@ public:
 
     virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
     virtual void PossessedBy(AController* NewController) override;
+
+    // 기준 걷기 속도 변경(보스 페이즈 등) — 즉시 상태이상(둔화/스턴) 반영해 MaxWalkSpeed 적용
+    void SetBaseWalkSpeed(float NewBaseSpeed);
+
+    // 워닝 데칼을 보스(Anchor)에서 끝점까지 GrowTime 동안 자라게 시작. 데칼은 코스메틱이라 멀티캐스트로 각 클라가 표시.
+    UFUNCTION(NetMulticast, Reliable)
+    void Multicast_StartGrowingDecal(UMaterialInterface* DecalMaterial, FVector Anchor, FVector Dir, float FullLength, float Width, float Depth, float GrowTime);
+
+    // 워닝 데칼 제거(돌진 시작 시 모든 클라 동기 제거)
+    UFUNCTION(NetMulticast, Reliable)
+    void Multicast_DestroyWarningDecal();
 
 protected:
     virtual void BeginPlay() override;
@@ -71,4 +87,59 @@ protected:
     TObjectPtr<USkeletalMesh> ShieldMeshAsset;
 
     bool bAbilitiesGranted = false;
+
+    // ── 이동속도(상태이상 둔화/스턴 반영) ────────────────────────────
+    // 평상시 기준 걷기 속도(보스 페이즈가 SetBaseWalkSpeed로 갱신).
+    // Status.Shocked(스턴)/Status.Chilled(둔화) 태그에 따라 RefreshMoveSpeed가 MaxWalkSpeed를 재계산.
+    float BaseWalkSpeed = 0.f;
+
+    // Status.Chilled일 때 BaseWalkSpeed에 곱하는 둔화 배율
+    UPROPERTY(EditDefaultsOnly, Category = "Combat|Status")
+    float ChillSpeedFactor = 0.45f;
+
+    UFUNCTION()
+    void OnMoveStatusTagChanged(const FGameplayTag Tag, int32 NewCount);
+
+    void RefreshMoveSpeed();
+
+    // ── 상태이상 VFX 뼈대 ────────────────────────────────────────────
+    // 각 상태이상 태그가 켜지면 대응 Niagara를 메시에 부착·활성, 꺼지면 제거. (나이아가라만 꽂으면 동작)
+    // BP_Enemy/BP_Boss에서 에셋 지정. 비우면 해당 상태 VFX 없음.
+    UPROPERTY(EditDefaultsOnly, Category = "Combat|Status|VFX")
+    TObjectPtr<UNiagaraSystem> BurningVFX;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Combat|Status|VFX")
+    TObjectPtr<UNiagaraSystem> BleedingVFX;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Combat|Status|VFX")
+    TObjectPtr<UNiagaraSystem> ShockedVFX;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Combat|Status|VFX")
+    TObjectPtr<UNiagaraSystem> ChilledVFX;
+
+    // 상태이상 태그 변화 → 대응 VFX on/off
+    UFUNCTION()
+    void OnStatusVFXTagChanged(const FGameplayTag Tag, int32 NewCount);
+
+    // 태그→스폰된 Niagara 컴포넌트(활성 중인 것만). 키=상태 태그.
+    UPROPERTY(Transient)
+    TMap<FGameplayTag, TObjectPtr<UNiagaraComponent>> ActiveStatusVFX;
+
+    // 태그에 매핑된 Niagara 시스템 반환(없으면 nullptr)
+    UNiagaraSystem* GetStatusVFXFor(const FGameplayTag& Tag) const;
+
+    // ── 워닝 데칼 성장 ──────────────────────────────────────────────
+    void UpdateGrowingDecal();   // 타이머: 데칼 길이/위치를 보스→끝점으로 성장
+
+    UPROPERTY(Transient)
+    TObjectPtr<UDecalComponent> WarningDecalComp;
+
+    FVector DecalAnchor = FVector::ZeroVector;   // 성장 기준점(보스 발밑)
+    FVector DecalDir = FVector::ForwardVector;   // 돌진 방향
+    float DecalFullLength = 0.f;
+    float DecalHalfWidth = 0.f;
+    float DecalDepth = 0.f;
+    float DecalGrowTime = 0.f;
+    float DecalGrowElapsed = 0.f;
+    FTimerHandle DecalGrowTimer;
 };

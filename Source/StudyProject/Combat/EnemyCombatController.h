@@ -58,7 +58,27 @@ protected:
     UPROPERTY(EditDefaultsOnly, Category = "AI")
     TArray<TSubclassOf<UGameplayAbility>> AttackAbilities;
 
+    // ── 갭클로저(돌진 등) — 플레이어가 멀 때 거리 좁히는 스킬 ──────────
+    // 지정 시: 플레이어가 [ChargeMinRange, ChargeMaxRange]면 접근 대신 이 스킬을 쓴다.
+    UPROPERTY(EditDefaultsOnly, Category = "AI|Charge")
+    TSubclassOf<UGameplayAbility> ChargeAbility;
+
+    // 이보다 가까우면 돌진 안 함(근접은 평타). 이보다 멀면 돌진 사거리 밖이라 그냥 접근.
+    UPROPERTY(EditDefaultsOnly, Category = "AI|Charge")
+    float ChargeMinRange = 350.f;
+
+    UPROPERTY(EditDefaultsOnly, Category = "AI|Charge")
+    float ChargeMaxRange = 1500.f;
+
+    UPROPERTY(EditDefaultsOnly, Category = "AI|Charge")
+    float ChargeCooldown = 5.f;
+
+    // 플레이어와 높이차가 이보다 크면 돌진 안 함(다른 층으로 수평 돌진하다 벽에 박는 것 방지)
+    UPROPERTY(EditDefaultsOnly, Category = "AI|Charge")
+    float ChargeMaxHeightDiff = 250.f;
+
 private:
     float LastAttackTime = -1000.f;
+    float LastChargeTime = -1000.f;
     int32 ComboCount = 0;
 };

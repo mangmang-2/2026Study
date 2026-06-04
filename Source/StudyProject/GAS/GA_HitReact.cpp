@@ -14,6 +14,9 @@ UGA_HitReact::UGA_HitReact()
     // 피격 중에는 이동 불가(플린치 동안 굳음)
     bLocksMovement = true;
 
+    // 슈퍼아머 중(예: 보스 돌진)에는 피격 플린치 차단 — 데미지는 들어가되 모션이 끊기지 않음
+    ActivationBlockedTags.AddTag(StudyTags::Status_SuperArmor);
+
     // Event.HitReact 수신 시 자동 활성화
     FAbilityTriggerData Trigger;
     Trigger.TriggerTag = StudyTags::Event_HitReact;

@@ -72,6 +72,9 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Gold")
     void AddGold(int32 Amount);
 
+    // 기준 걷기 속도 변경(스프린트/보스 페이즈 등) — 즉시 상태이상(둔화/스턴) 반영해 MaxWalkSpeed 적용
+    void SetBaseWalkSpeed(float NewBaseSpeed);
+
     // 세이브/로드
     void SaveCharacter();
     void LoadCharacter();
@@ -138,6 +141,20 @@ protected:
     // ASC ActorInfo 초기화 + (서버) 기본 어빌리티/스탯 부여
     void InitAbilitySystem();
     bool bAbilitiesGranted = false;
+
+    // ── 이동속도(상태이상 둔화/스턴 반영) ────────────────────────────
+    // 평상시 기준 걷기 속도(스프린트/보스 페이즈가 SetBaseWalkSpeed로 갱신).
+    // Status.Shocked(스턴)/Status.Chilled(둔화) 태그에 따라 RefreshMoveSpeed가 MaxWalkSpeed를 재계산.
+    float BaseWalkSpeed = 0.f;
+
+    // Status.Chilled일 때 BaseWalkSpeed에 곱하는 둔화 배율
+    UPROPERTY(EditDefaultsOnly, Category = "Combat|Status")
+    float ChillSpeedFactor = 0.45f;
+
+    UFUNCTION()
+    void OnMoveStatusTagChanged(const FGameplayTag Tag, int32 NewCount);
+
+    void RefreshMoveSpeed();
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
     TObjectPtr<UInventoryComponent> InventoryComp;

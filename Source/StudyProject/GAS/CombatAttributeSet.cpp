@@ -75,6 +75,10 @@ void UCombatAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCall
     // 데미지를 받았고 아직 살아있으면 피격 이벤트 전송(피격 GA가 수신해 hit react 재생)
     const bool bTookDamage = (Data.EvaluatedData.Attribute == GetDamageAttribute());
 
+    // 지속 데미지(화상/출혈 등 Period GE)는 매 틱 피격 모션을 띄우면 플린치 스팸이 됨 → 제외
+    const bool bIsPeriodicDamage = (Data.EffectSpec.Def != nullptr
+        && Data.EffectSpec.Def->DurationPolicy != EGameplayEffectDurationType::Instant);
+
     // 사망 처리 — HP 0 이하 + 아직 Dead 아님
     if (GetHP() <= 0.f && ASC && !ASC->HasMatchingGameplayTag(StudyTags::State_Dead))
     {
@@ -87,7 +91,7 @@ void UCombatAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCall
         Payload.Target = TargetActor;
         ASC->HandleGameplayEvent(StudyTags::Event_Death, &Payload);
     }
-    else if (bTookDamage && GetHP() > 0.f && ASC)
+    else if (bTookDamage && bIsPeriodicDamage == false && GetHP() > 0.f && ASC)
     {
         // 피격 이벤트 전송(HitReact GA가 수신)
         FGameplayEventData Payload;

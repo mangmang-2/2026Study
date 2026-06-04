@@ -30,6 +30,10 @@ namespace StudyTags
     UE_DEFINE_GAMEPLAY_TAG(Status_CanFinish,  "Status.CanFinish");
     UE_DEFINE_GAMEPLAY_TAG(Status_Parrying,   "Status.Parrying");
     UE_DEFINE_GAMEPLAY_TAG(Status_Staggered,  "Status.Staggered");
+    UE_DEFINE_GAMEPLAY_TAG(Status_Burning,    "Status.Burning");
+    UE_DEFINE_GAMEPLAY_TAG(Status_Bleeding,   "Status.Bleeding");
+    UE_DEFINE_GAMEPLAY_TAG(Status_Shocked,    "Status.Shocked");
+    UE_DEFINE_GAMEPLAY_TAG(Status_Chilled,    "Status.Chilled");
 
     UE_DEFINE_GAMEPLAY_TAG(Event_HitReact,        "Event.HitReact");
     UE_DEFINE_GAMEPLAY_TAG(Event_Death,           "Event.Death");

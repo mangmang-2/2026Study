@@ -70,10 +70,8 @@ void ABossEnemy::HandleHPChanged(const FOnAttributeChangeData& Data)
     while (CurrentPhase < PhaseHealthThresholds.Num() && Frac <= PhaseHealthThresholds[CurrentPhase])
     {
         ++CurrentPhase;
-        if (UCharacterMovementComponent* Move = GetCharacterMovement())
-        {
-            Move->MaxWalkSpeed += PerPhaseSpeedBonus;
-        }
+        // 기준속도 증가 — 둔화/스턴 상태이상이 합성 반영되도록 SetBaseWalkSpeed 경유
+        SetBaseWalkSpeed(BaseWalkSpeed + PerPhaseSpeedBonus);
         OnPhaseChanged(CurrentPhase);
     }
 }

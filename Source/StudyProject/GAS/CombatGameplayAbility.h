@@ -43,6 +43,10 @@ protected:
     UPROPERTY(EditDefaultsOnly, Category = "Combat|Damage")
     float MeleeRadius = 70.f;
 
+    // 적중 시 대상에 부여할 상태이상 GE(화상/출혈/감전/둔화 등). 비어 있으면 없음. BP/무기별로 설정.
+    UPROPERTY(EditDefaultsOnly, Category = "Combat|Status")
+    TArray<TSubclassOf<UGameplayEffect>> OnHitStatusEffects;
+
     // 패리 성공 판정: 타깃 정면 벡터와 '타깃→공격자' 방향의 내적이 이 값 이상이면 정면 패리로 인정.
     // 0.1 ≈ 약 84도 전방까지 허용(너무 빡빡하지 않게). ApplyMeleeDamage에서 사용.
     UPROPERTY(EditDefaultsOnly, Category = "Combat|Damage")

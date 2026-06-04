@@ -5,8 +5,10 @@
 #include "Inventory/ShopComponent.h"
 #include "GAS/CombatAbilitySystemComponent.h"
 #include "GAS/CombatAttributeSet.h"
+#include "GAS/StudyGameplayTags.h"
 #include "AbilitySystemComponent.h"
 #include "GameplayEffect.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "Data/GameSaveData.h"
 #include "Kismet/GameplayStatics.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -217,10 +219,69 @@ void ACharacterBase::BeginPlay()
     // 클라이언트/스탠드얼론: 아바타 정보 초기화 (서버는 PossessedBy에서 처리됨)
     InitAbilitySystem();
 
+    // 상태이상 둔화/스턴 반영용 — 평상시 기준 속도 캡처 + 태그 변화 구독
+    if (GetCharacterMovement() != nullptr)
+    {
+        BaseWalkSpeed = GetCharacterMovement()->MaxWalkSpeed;
+    }
+    if (AbilitySystemComponent != nullptr)
+    {
+        AbilitySystemComponent->RegisterGameplayTagEvent(StudyTags::Status_Chilled, EGameplayTagEventType::NewOrRemoved)
+            .AddUObject(this, &ACharacterBase::OnMoveStatusTagChanged);
+        AbilitySystemComponent->RegisterGameplayTagEvent(StudyTags::Status_Shocked, EGameplayTagEventType::NewOrRemoved)
+            .AddUObject(this, &ACharacterBase::OnMoveStatusTagChanged);
+    }
+
+    // 데칼(보스 워닝 데칼 등)이 플레이어 메시에 묻지 않도록 — 데칼은 바닥에만
+    USkeletalMeshComponent* MeshParts[] = {
+        GetMesh(), HeadMesh, BodyMesh, HandsMesh, LegsMesh, FeetMesh, ShoulderMesh, ArmsMesh, WeaponMesh, ShieldMesh };
+    for (USkeletalMeshComponent* Part : MeshParts)
+    {
+        if (Part != nullptr)
+        {
+            Part->SetReceivesDecals(false);
+        }
+    }
+    if (WeaponStaticMesh != nullptr)
+    {
+        WeaponStaticMesh->SetReceivesDecals(false);
+    }
+
     if (HasAuthority())
     {
         LoadCharacter();
     }
+}
+
+void ACharacterBase::OnMoveStatusTagChanged(const FGameplayTag /*Tag*/, int32 /*NewCount*/)
+{
+    RefreshMoveSpeed();
+}
+
+void ACharacterBase::SetBaseWalkSpeed(float NewBaseSpeed)
+{
+    BaseWalkSpeed = NewBaseSpeed;
+    RefreshMoveSpeed();
+}
+
+void ACharacterBase::RefreshMoveSpeed()
+{
+    UCharacterMovementComponent* Move = GetCharacterMovement();
+    if (Move == nullptr || AbilitySystemComponent == nullptr)
+    {
+        return;
+    }
+
+    float Speed = BaseWalkSpeed;
+    if (AbilitySystemComponent->HasMatchingGameplayTag(StudyTags::Status_Shocked))
+    {
+        Speed = 0.f;   // 스턴: 완전 정지
+    }
+    else if (AbilitySystemComponent->HasMatchingGameplayTag(StudyTags::Status_Chilled))
+    {
+        Speed = BaseWalkSpeed * ChillSpeedFactor;   // 둔화: 배율 적용
+    }
+    Move->MaxWalkSpeed = Speed;
 }
 
 void ACharacterBase::SetupModularMesh(USkeletalMeshComponent* Part)

@@ -37,6 +37,10 @@ namespace StudyTags
     STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Status_CanFinish);
     STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Status_Parrying);     // 저스트카운터 패리 윈도우 활성 중
     STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Status_Staggered);    // 패리당해 경직(처형 오프닝)
+    STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Status_Burning);      // 상태이상: 화상(화염 지속 데미지)
+    STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Status_Bleeding);     // 상태이상: 출혈(물리 지속 데미지)
+    STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Status_Shocked);      // 상태이상: 감전(짧은 스턴 — 이동/공격 불가)
+    STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Status_Chilled);      // 상태이상: 둔화(이동속도 감소)
 
     // Event.* (AnimNotify / GA 간 통신)
     STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_HitReact);

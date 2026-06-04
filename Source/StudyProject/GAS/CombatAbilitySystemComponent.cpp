@@ -1,10 +1,17 @@
 #include "CombatAbilitySystemComponent.h"
 #include "CombatGameplayAbility.h"
 #include "GA_Combo.h"
+#include "StudyGameplayTags.h"
 
 bool UCombatAbilitySystemComponent::TryActivateAbilityByInputTag(FGameplayTag InputTag)
 {
     if (InputTag.IsValid() == false)
+    {
+        return false;
+    }
+
+    // 감전(스턴) 중엔 입력으로 어빌리티 발동 불가
+    if (HasMatchingGameplayTag(StudyTags::Status_Shocked))
     {
         return false;
     }

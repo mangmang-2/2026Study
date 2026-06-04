@@ -199,6 +199,22 @@ bool UCombatGameplayAbility::ApplyMeleeDamage(float DamageAmount, FGameplayTag E
             SourceASC->ApplyGameplayEffectSpecToTarget(*Spec.Data.Get(), TargetASC);
         }
 
+        // 적중 시 상태이상 부여(화상/출혈/감전/둔화 등) — 설정된 GE만, 비어 있으면 없음
+        for (const TSubclassOf<UGameplayEffect>& StatusGE : OnHitStatusEffects)
+        {
+            if (StatusGE == nullptr)
+            {
+                continue;
+            }
+            FGameplayEffectContextHandle StatusCtx = SourceASC->MakeEffectContext();
+            StatusCtx.AddSourceObject(Avatar);
+            FGameplayEffectSpecHandle StatusSpec = SourceASC->MakeOutgoingSpec(StatusGE, 1.f, StatusCtx);
+            if (StatusSpec.IsValid())
+            {
+                SourceASC->ApplyGameplayEffectSpecToTarget(*StatusSpec.Data.Get(), TargetASC);
+            }
+        }
+
         // 넉백 — 피격자를 공격자 반대 방향으로 밀기(런치 이벤트가 없을 때만)
         if (Feel.KnockbackSpeed > 0.f && EventOnHit.IsValid() == false)
         {

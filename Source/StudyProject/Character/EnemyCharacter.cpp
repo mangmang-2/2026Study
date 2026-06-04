@@ -2,11 +2,21 @@
 #include "GAS/CombatAbilitySystemComponent.h"
 #include "GAS/CombatAttributeSet.h"
 #include "GAS/GA_EnemyAttack.h"
+#include "GAS/StudyGameplayTags.h"
+#include "AbilitySystemComponent.h"
 #include "Combat/EnemyCombatController.h"
 #include "Abilities/GameplayAbility.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Components/DecalComponent.h"
+#include "Materials/MaterialInterface.h"
+#include "Kismet/GameplayStatics.h"
+#include "Engine/World.h"
+#include "TimerManager.h"
+#include "NiagaraSystem.h"
+#include "NiagaraComponent.h"
+#include "NiagaraFunctionLibrary.h"
 #include "Engine/SkeletalMesh.h"
 #include "UObject/ConstructorHelpers.h"
 
@@ -84,6 +94,211 @@ void AEnemyCharacter::BeginPlay()
     Super::BeginPlay();
     // 스탠드얼론/클라: 아바타 정보 초기화 (서버는 PossessedBy에서도 처리)
     InitAbilitySystem();
+
+    // 상태이상 둔화/스턴 반영용 — 평상시 기준 속도 캡처 + 태그 변화 구독
+    if (GetCharacterMovement() != nullptr)
+    {
+        BaseWalkSpeed = GetCharacterMovement()->MaxWalkSpeed;
+        // navmesh 길찾기(MoveToActor) 이동을 가속도 기반으로 — 안 그러면 velocity만 바뀌고 Acceleration=0이라
+        // ABP의 ShouldMove(가속도 기반)가 false→idle로 미끄러짐. 켜면 걷기/달리기 로코모션이 정상 재생.
+        if (FNavMovementProperties* NavProps = GetCharacterMovement()->GetNavMovementProperties())
+        {
+            NavProps->bUseAccelerationForPaths = true;
+        }
+    }
+
+    // 워닝 데칼 등이 캐릭터 메시에 묻지 않도록(데칼은 바닥에만)
+    if (GetMesh() != nullptr)
+    {
+        GetMesh()->SetReceivesDecals(false);
+    }
+    if (WeaponMesh != nullptr)
+    {
+        WeaponMesh->SetReceivesDecals(false);
+    }
+    if (ShieldMesh != nullptr)
+    {
+        ShieldMesh->SetReceivesDecals(false);
+    }
+    if (AbilitySystemComponent != nullptr)
+    {
+        AbilitySystemComponent->RegisterGameplayTagEvent(StudyTags::Status_Chilled, EGameplayTagEventType::NewOrRemoved)
+            .AddUObject(this, &AEnemyCharacter::OnMoveStatusTagChanged);
+        AbilitySystemComponent->RegisterGameplayTagEvent(StudyTags::Status_Shocked, EGameplayTagEventType::NewOrRemoved)
+            .AddUObject(this, &AEnemyCharacter::OnMoveStatusTagChanged);
+
+        // 상태이상 VFX(뼈대) — 4종 태그 on/off에 따라 Niagara 부착/제거
+        AbilitySystemComponent->RegisterGameplayTagEvent(StudyTags::Status_Burning, EGameplayTagEventType::NewOrRemoved)
+            .AddUObject(this, &AEnemyCharacter::OnStatusVFXTagChanged);
+        AbilitySystemComponent->RegisterGameplayTagEvent(StudyTags::Status_Bleeding, EGameplayTagEventType::NewOrRemoved)
+            .AddUObject(this, &AEnemyCharacter::OnStatusVFXTagChanged);
+        AbilitySystemComponent->RegisterGameplayTagEvent(StudyTags::Status_Shocked, EGameplayTagEventType::NewOrRemoved)
+            .AddUObject(this, &AEnemyCharacter::OnStatusVFXTagChanged);
+        AbilitySystemComponent->RegisterGameplayTagEvent(StudyTags::Status_Chilled, EGameplayTagEventType::NewOrRemoved)
+            .AddUObject(this, &AEnemyCharacter::OnStatusVFXTagChanged);
+    }
+}
+
+void AEnemyCharacter::Multicast_StartGrowingDecal_Implementation(
+    UMaterialInterface* DecalMaterial, FVector Anchor, FVector Dir, float FullLength, float Width, float Depth, float GrowTime)
+{
+    if (DecalMaterial == nullptr)
+    {
+        return;
+    }
+    // 기존 데칼 정리
+    if (WarningDecalComp != nullptr)
+    {
+        WarningDecalComp->DestroyComponent();
+        WarningDecalComp = nullptr;
+    }
+
+    DecalAnchor = Anchor;
+    DecalDir = Dir.GetSafeNormal2D();
+    DecalFullLength = FullLength;
+    DecalHalfWidth = Width * 0.5f;
+    DecalDepth = Depth;
+    DecalGrowTime = FMath::Max(0.05f, GrowTime);
+    DecalGrowElapsed = 0.f;
+
+    // 길이 ~0(보스 발밑)에서 시작. Pitch -90으로 바닥 투영, 로컬 Z축이 돌진 방향에 정렬.
+    const FRotator DecalRot(-90.f, DecalDir.Rotation().Yaw, 0.f);
+    const FVector StartSize(DecalDepth, DecalHalfWidth, 1.f);
+    WarningDecalComp = UGameplayStatics::SpawnDecalAtLocation(this, DecalMaterial, StartSize, DecalAnchor, DecalRot, 0.f);
+
+    if (UWorld* World = GetWorld())
+    {
+        World->GetTimerManager().SetTimer(DecalGrowTimer, this, &AEnemyCharacter::UpdateGrowingDecal, 0.03f, true);
+    }
+}
+
+void AEnemyCharacter::UpdateGrowingDecal()
+{
+    if (WarningDecalComp == nullptr)
+    {
+        return;
+    }
+    DecalGrowElapsed += 0.03f;
+    const float Alpha = FMath::Clamp(DecalGrowElapsed / DecalGrowTime, 0.f, 1.f);
+    const float CurLen = DecalFullLength * Alpha;
+
+    // 근단(near)은 보스에 고정, 원단(far)이 돌진 방향으로 성장 → 중심 = Anchor + Dir*CurLen/2
+    const FVector Mid = DecalAnchor + DecalDir * (CurLen * 0.5f);
+    WarningDecalComp->SetWorldLocation(FVector(Mid.X, Mid.Y, DecalAnchor.Z));
+    WarningDecalComp->DecalSize = FVector(DecalDepth, DecalHalfWidth, FMath::Max(1.f, CurLen * 0.5f));
+    WarningDecalComp->MarkRenderStateDirty();
+
+    if (Alpha >= 1.f)
+    {
+        // 다 자라면 성장 정지(돌진 시작 시 Multicast_DestroyWarningDecal로 제거됨)
+        if (UWorld* World = GetWorld())
+        {
+            World->GetTimerManager().ClearTimer(DecalGrowTimer);
+        }
+    }
+}
+
+void AEnemyCharacter::Multicast_DestroyWarningDecal_Implementation()
+{
+    if (UWorld* World = GetWorld())
+    {
+        World->GetTimerManager().ClearTimer(DecalGrowTimer);
+    }
+    if (WarningDecalComp != nullptr)
+    {
+        WarningDecalComp->DestroyComponent();
+        WarningDecalComp = nullptr;
+    }
+}
+
+UNiagaraSystem* AEnemyCharacter::GetStatusVFXFor(const FGameplayTag& Tag) const
+{
+    if (Tag == StudyTags::Status_Burning)
+    {
+        return BurningVFX;
+    }
+    if (Tag == StudyTags::Status_Bleeding)
+    {
+        return BleedingVFX;
+    }
+    if (Tag == StudyTags::Status_Shocked)
+    {
+        return ShockedVFX;
+    }
+    if (Tag == StudyTags::Status_Chilled)
+    {
+        return ChilledVFX;
+    }
+    return nullptr;
+}
+
+void AEnemyCharacter::OnStatusVFXTagChanged(const FGameplayTag Tag, int32 NewCount)
+{
+    UNiagaraSystem* System = GetStatusVFXFor(Tag);
+    if (System == nullptr)
+    {
+        return;   // 해당 상태 VFX 미지정 — 뼈대만, 에셋 꽂으면 동작
+    }
+
+    if (NewCount > 0)
+    {
+        // 이미 켜져 있으면 중복 스폰 방지
+        if (ActiveStatusVFX.Contains(Tag))
+        {
+            return;
+        }
+        UNiagaraComponent* Comp = UNiagaraFunctionLibrary::SpawnSystemAttached(
+            System, GetMesh(), NAME_None, FVector::ZeroVector, FRotator::ZeroRotator,
+            EAttachLocation::SnapToTarget, true);
+        if (Comp != nullptr)
+        {
+            ActiveStatusVFX.Add(Tag, Comp);
+        }
+    }
+    else
+    {
+        // 상태 해제 → VFX 제거
+        if (TObjectPtr<UNiagaraComponent>* Found = ActiveStatusVFX.Find(Tag))
+        {
+            if (*Found != nullptr)
+            {
+                (*Found)->DeactivateImmediate();
+                (*Found)->DestroyComponent();
+            }
+            ActiveStatusVFX.Remove(Tag);
+        }
+    }
+}
+
+void AEnemyCharacter::OnMoveStatusTagChanged(const FGameplayTag /*Tag*/, int32 /*NewCount*/)
+{
+    RefreshMoveSpeed();
+}
+
+void AEnemyCharacter::SetBaseWalkSpeed(float NewBaseSpeed)
+{
+    BaseWalkSpeed = NewBaseSpeed;
+    RefreshMoveSpeed();
+}
+
+void AEnemyCharacter::RefreshMoveSpeed()
+{
+    UCharacterMovementComponent* Move = GetCharacterMovement();
+    if (Move == nullptr || AbilitySystemComponent == nullptr)
+    {
+        return;
+    }
+
+    float Speed = BaseWalkSpeed;
+    if (AbilitySystemComponent->HasMatchingGameplayTag(StudyTags::Status_Shocked))
+    {
+        Speed = 0.f;   // 스턴: 완전 정지
+    }
+    else if (AbilitySystemComponent->HasMatchingGameplayTag(StudyTags::Status_Chilled))
+    {
+        Speed = BaseWalkSpeed * ChillSpeedFactor;   // 둔화: 배율 적용
+    }
+    Move->MaxWalkSpeed = Speed;
 }
 
 void AEnemyCharacter::InitAbilitySystem()

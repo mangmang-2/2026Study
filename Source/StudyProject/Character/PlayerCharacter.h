@@ -59,6 +59,19 @@ public:
     UFUNCTION(Exec)
     void DebugParry();
 
+    // 콘솔 커맨드: 록온/최근접 적에게 상태이상 부여(테스트용)
+    UFUNCTION(Exec)
+    void DebugBurn();
+
+    UFUNCTION(Exec)
+    void DebugBleed();
+
+    UFUNCTION(Exec)
+    void DebugShock();
+
+    UFUNCTION(Exec)
+    void DebugChill();
+
     // ── 디버그 스폰(스폰 위젯 버튼/콘솔에서 호출) ─────────────────────
     UFUNCTION(BlueprintCallable, Category = "Debug")
     void SpawnTestEnemy();
@@ -279,8 +292,30 @@ private:
     void Server_SpawnTestEnemy();
     UFUNCTION(Server, Reliable) 
     void Server_SpawnTestBoss();
-    UFUNCTION(Server, Reliable) 
+    UFUNCTION(Server, Reliable)
     void Server_ClearEnemies();
+
+    // 상태이상 디버그 — 대상 탐색 + 적용(서버 권위)
+    class AEnemyCharacter* FindStatusTarget() const;
+    void ApplyDebugStatus(TSubclassOf<class UGameplayEffect> StatusGE);
+
+    UFUNCTION(Server, Reliable)
+    void Server_ApplyDebugStatus(TSubclassOf<class UGameplayEffect> StatusGE);
+
+    // ── 사망 / 리스폰 ───────────────────────────────────────────────
+    // HP 0 → AttributeSet가 State.Dead 부여 → 이 콜백이 사망 처리(입력정지) 후 RespawnDelay 뒤 리스폰.
+    UFUNCTION()
+    void OnDeathTagChanged(const FGameplayTag Tag, int32 NewCount);
+
+    void HandleDeath();
+    void Respawn();
+
+    UPROPERTY(EditDefaultsOnly, Category = "Death")
+    float RespawnDelay = 3.f;
+
+    FTransform SpawnTransform;
+    FTimerHandle RespawnTimer;
+    bool bIsDead = false;
 
     UPROPERTY()
     TObjectPtr<UUserWidget> SpawnerWidget = nullptr;
