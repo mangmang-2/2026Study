@@ -33,8 +33,17 @@ public:
         bool bWasCancelled) override;
 
 protected:
+    // 단일 공격 몽타주(ComboMontages가 비었을 때 사용)
     UPROPERTY(EditDefaultsOnly, Category = "Combat")
     TObjectPtr<UAnimMontage> AttackMontage;
+
+    // 콤보 몽타주(채워지면 한 번의 발동에서 1→2→3→4를 회복동작 캔슬하며 크로스블렌드로 연결 = 매끄러운 콤보)
+    UPROPERTY(EditDefaultsOnly, Category = "Combat")
+    TArray<TObjectPtr<UAnimMontage>> ComboMontages;
+
+    // 다음 타로 넘어가는 시점(현재 타 길이 대비 비율). 작을수록 빠릿하게 이어짐(회복동작 캔슬).
+    UPROPERTY(EditDefaultsOnly, Category = "Combat", meta = (ClampMin = "0.2", ClampMax = "1.0"))
+    float ChainFraction = 0.55f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Combat")
     float AttackDamage = 10.f;
@@ -47,6 +56,9 @@ protected:
     UPROPERTY(EditDefaultsOnly, Category = "Combat")
     FHitFeel AttackHitFeel;
 
-    UFUNCTION()
-    void OnAttackFinished();
+private:
+    void PlayChainStep();      // 현재 스텝 몽타주 재생 + 다음/종료 예약
+
+    int32 ComboStep = 0;
+    FTimerHandle ChainTimer;
 };

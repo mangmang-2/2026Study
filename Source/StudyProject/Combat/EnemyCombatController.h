@@ -38,9 +38,9 @@ protected:
     UPROPERTY(EditDefaultsOnly, Category = "AI")
     float ComboGap = 0.4f;
 
-    // 한 번에 이어칠 공격 횟수(이후 AttackCooldown 회복)
+    // 한 번에 칠 공격(콤보) 횟수(이후 AttackCooldown 회복). AM_Combo_All이 이미 다타 콤보라 1 권장.
     UPROPERTY(EditDefaultsOnly, Category = "AI")
-    int32 ComboMax = 3;
+    int32 ComboMax = 1;
 
     // 플레이어가 적보다 이만큼 위(공중)면 공격하지 않음
     UPROPERTY(EditDefaultsOnly, Category = "AI")

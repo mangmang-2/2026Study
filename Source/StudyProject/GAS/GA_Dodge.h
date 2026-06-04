@@ -46,7 +46,7 @@ protected:
     // 이동 시간을 회피 몽타주 길이의 몇 배로 할지(1.0=애니와 동시 종료). 이동이 먼저 끝나
     // 애니만 남는 렉 느낌 방지 — 몽타주 길이에 맞춰 이동.
     UPROPERTY(EditDefaultsOnly, Category = "Combat", meta = (ClampMin = "0.1", ClampMax = "1.0"))
-    float DodgeMoveFraction = 0.9f;
+    float DodgeMoveFraction = 0.55f;
 
     UFUNCTION()
     void OnMontageFinished();

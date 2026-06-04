@@ -38,7 +38,7 @@ protected:
     TSubclassOf<UGameplayEffect> DamageGEClass;
 
     UPROPERTY(EditDefaultsOnly, Category = "Combat|Damage")
-    float MeleeRange = 175.f;
+    float MeleeRange = 135.f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Combat|Damage")
     float MeleeRadius = 70.f;

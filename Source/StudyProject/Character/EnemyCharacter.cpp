@@ -50,6 +50,22 @@ AEnemyCharacter::AEnemyCharacter()
         WeaponMeshAsset = WeaponFinder.Object;
         WeaponMesh->SetSkeletalMeshAsset(WeaponMeshAsset);
     }
+
+    // 왼손 방패 — hand_l 본 + 플레이어 HandSocket_L과 동일한 상대 트랜스폼
+    ShieldMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("EnemyShieldMesh"));
+    ShieldMesh->SetupAttachment(GetMesh(), TEXT("hand_l"));
+    ShieldMesh->SetRelativeLocation(FVector(6.583f, 0.507f, 1.134f));
+    ShieldMesh->SetRelativeRotation(FRotator(-4.076f, -175.882f, 153.836f));
+    ShieldMesh->SetCollisionProfileName(TEXT("NoCollision"));
+    ShieldMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECR_Ignore);
+
+    static ConstructorHelpers::FObjectFinder<USkeletalMesh> ShieldFinder(
+        TEXT("/Game/SKnight_modular/Skeleton_Knight_01/mesh/weapon/SK_shield_01.SK_shield_01"));
+    if (ShieldFinder.Succeeded())
+    {
+        ShieldMeshAsset = ShieldFinder.Object;
+        ShieldMesh->SetSkeletalMeshAsset(ShieldMeshAsset);
+    }
 }
 
 UAbilitySystemComponent* AEnemyCharacter::GetAbilitySystemComponent() const

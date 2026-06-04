@@ -1,11 +1,18 @@
 #include "GA_HitReact.h"
 #include "StudyGameplayTags.h"
+#include "Animation/AnimMontage.h"
 #include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
 
 UGA_HitReact::UGA_HitReact()
 {
     // 적(서버 권위) 반응이므로 서버에서만 실행
     NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::ServerOnly;
+
+    // 연속 피격마다 플린치가 다시 재생되도록(이미 재생 중이어도 재발동)
+    bRetriggerInstancedAbility = true;
+
+    // 피격 중에는 이동 불가(플린치 동안 굳음)
+    bLocksMovement = true;
 
     // Event.HitReact 수신 시 자동 활성화
     FAbilityTriggerData Trigger;

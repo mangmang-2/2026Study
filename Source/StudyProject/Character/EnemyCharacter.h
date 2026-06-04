@@ -63,5 +63,12 @@ protected:
     UPROPERTY(EditDefaultsOnly, Category = "Combat")
     TObjectPtr<USkeletalMesh> WeaponMeshAsset;
 
+    // 왼손(hand_l) 방패
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat")
+    TObjectPtr<USkeletalMeshComponent> ShieldMesh;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Combat")
+    TObjectPtr<USkeletalMesh> ShieldMeshAsset;
+
     bool bAbilitiesGranted = false;
 };

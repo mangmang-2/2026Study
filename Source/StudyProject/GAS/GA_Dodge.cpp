@@ -123,8 +123,8 @@ void UGA_Dodge::DodgeMoveTick()
 
     DodgeElapsed += 0.016f;
     const float Alpha = FMath::Clamp(DodgeElapsed / CurrentMoveDuration, 0.f, 1.f);
-    // ease-out: 빠르게 출발했다가 끝에서 절제되게 멈춤
-    const float Smooth = 1.f - FMath::Square(1.f - Alpha);
+    // 강한 ease-out(quartic): 시작에 확 치고 나가고 끝에서 빠르게 정지 → 미끄러짐(스케이트) 최소화
+    const float Smooth = 1.f - FMath::Pow(1.f - Alpha, 4.f);
 
     FVector NewLoc = FMath::Lerp(DodgeStartLoc, DodgeEndLoc, Smooth);
     NewLoc.Z = Char->GetActorLocation().Z;   // 수직은 그대로(중력/지면 유지)

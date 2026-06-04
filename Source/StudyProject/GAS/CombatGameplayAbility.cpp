@@ -17,6 +17,14 @@
 #include "Camera/CameraShakeBase.h"
 #include "TimerManager.h"
 #include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
+#include "DrawDebugHelpers.h"
+
+// 공격범위 시각화 옵션 — 콘솔에서 `study.DrawMeleeRange 1`(켜기) / `0`(끄기)
+static TAutoConsoleVariable<int32> CVarDrawMeleeRange(
+    TEXT("study.DrawMeleeRange"),
+    0,
+    TEXT("Draw melee attack range (sweep) debug shape. 0=off, 1=on"),
+    ECVF_Default);
 
 UCombatGameplayAbility::UCombatGameplayAbility()
 {
@@ -66,6 +74,20 @@ bool UCombatGameplayAbility::ApplyMeleeDamage(float DamageAmount, FGameplayTag E
     World->SweepMultiByChannel(
         Hits, Start, End, FQuat::Identity, ECC_Pawn,
         FCollisionShape::MakeSphere(MeleeRadius), Params);
+
+#if ENABLE_DRAW_DEBUG
+    // 공격범위 시각화(옵션) — 스피어 스윕을 캡슐로 그림. study.DrawMeleeRange 1 로 켬.
+    if (CVarDrawMeleeRange.GetValueOnGameThread() != 0)
+    {
+        const FVector Seg = End - Start;
+        const float Dist = Seg.Size();
+        const FVector Dir = Dist > KINDA_SMALL_NUMBER ? Seg / Dist : Avatar->GetActorForwardVector();
+        const FVector Center = (Start + End) * 0.5f;
+        const FQuat Rot = FQuat::FindBetweenNormals(FVector::UpVector, Dir);
+        DrawDebugCapsule(World, Center, Dist * 0.5f + MeleeRadius, MeleeRadius, Rot,
+            FColor::Yellow, /*persistent*/false, /*lifetime*/0.05f, /*depthprio*/0, /*thickness*/1.0f);
+    }
+#endif
 
     bool bHitAny = false;
     TSet<AActor*> Done;
