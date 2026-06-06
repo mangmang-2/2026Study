@@ -33,10 +33,10 @@ public:
     virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
     virtual void PossessedBy(AController* NewController) override;
 
-    // 기준 걷기 속도 변경(보스 페이즈 등) — 즉시 상태이상(둔화/스턴) 반영해 MaxWalkSpeed 적용
+    // 기준 걷기 속도 변경 — 둔화/스턴 반영해 MaxWalkSpeed 즉시 적용
     void SetBaseWalkSpeed(float NewBaseSpeed);
 
-    // 워닝 데칼을 보스(Anchor)에서 끝점까지 GrowTime 동안 자라게 시작. 데칼은 코스메틱이라 멀티캐스트로 각 클라가 표시.
+    // 워닝 데칼을 GrowTime 동안 성장 시작(코스메틱이라 멀티캐스트)
     UFUNCTION(NetMulticast, Reliable)
     void Multicast_StartGrowingDecal(UMaterialInterface* DecalMaterial, FVector Anchor, FVector Dir, float FullLength, float Width, float Depth, float GrowTime);
 
@@ -64,7 +64,7 @@ protected:
     UPROPERTY(EditDefaultsOnly, Category = "GAS")
     TSubclassOf<UGameplayEffect> DefaultAttributeEffect;
 
-    // 적 전용 시작 체력(>0이면 AttributeSet 기본값 대신 이 값으로 MaxHP/HP 설정). 플레이어엔 영향 없음.
+    // 적 전용 시작 체력(>0이면 기본값 대신 사용)
     UPROPERTY(EditDefaultsOnly, Category = "Combat")
     float StartingMaxHP = 1000.f;
 
@@ -72,7 +72,7 @@ protected:
     UPROPERTY(EditDefaultsOnly, Category = "Combat")
     TSubclassOf<UGameplayAbility> AttackAbilityClass;
 
-    // 손에 드는 무기 메시(오른손 hand_r 본에 부착). 플레이어 소켓과 동일한 상대 트랜스폼 적용.
+    // 오른손 hand_r 본 무기(플레이어 소켓과 동일 트랜스폼)
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat")
     TObjectPtr<USkeletalMeshComponent> WeaponMesh;
 
@@ -89,8 +89,7 @@ protected:
     bool bAbilitiesGranted = false;
 
     // ── 이동속도(상태이상 둔화/스턴 반영) ────────────────────────────
-    // 평상시 기준 걷기 속도(보스 페이즈가 SetBaseWalkSpeed로 갱신).
-    // Status.Shocked(스턴)/Status.Chilled(둔화) 태그에 따라 RefreshMoveSpeed가 MaxWalkSpeed를 재계산.
+    // 평상시 기준 속도. RefreshMoveSpeed가 둔화/스턴 태그에 따라 MaxWalkSpeed 재계산.
     float BaseWalkSpeed = 0.f;
 
     // Status.Chilled일 때 BaseWalkSpeed에 곱하는 둔화 배율
@@ -103,8 +102,7 @@ protected:
     void RefreshMoveSpeed();
 
     // ── 상태이상 VFX 뼈대 ────────────────────────────────────────────
-    // 각 상태이상 태그가 켜지면 대응 Niagara를 메시에 부착·활성, 꺼지면 제거. (나이아가라만 꽂으면 동작)
-    // BP_Enemy/BP_Boss에서 에셋 지정. 비우면 해당 상태 VFX 없음.
+    // 상태이상 태그 on/off에 대응 Niagara 부착/제거. BP에서 에셋 지정, 비우면 없음.
     UPROPERTY(EditDefaultsOnly, Category = "Combat|Status|VFX")
     TObjectPtr<UNiagaraSystem> BurningVFX;
 

@@ -36,7 +36,7 @@ public:
     void ClearSlots();
 
 protected:
-    // UserWidget 인스턴스는 BindWidget 대신 NativzzzzzzeConstruct에서 GetWidgetFromName으로 수동 바인딩
+    // UserWidget 인스턴스는 BindWidget 대신 NativeConstruct에서 수동 바인딩(이름 충돌 방지)
     UPROPERTY()
     TObjectPtr<UItemSlotWidget> CachedTargetSlotWidget   = nullptr;
     UPROPERTY(meta = (BindWidget)) 

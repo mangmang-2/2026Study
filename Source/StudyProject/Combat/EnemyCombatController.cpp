@@ -26,7 +26,7 @@ void AEnemyCombatController::Tick(float DeltaSeconds)
         return;
     }
 
-    // 행동 불가 상태(사망/공중·넉다운/경직/피격)면 AI 완전 정지 — 따라다니거나 바라보지도 않음
+    // 행동 불가 상태면 AI 완전 정지
     UAbilitySystemComponent* ASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(Enemy);
     if (ASC != nullptr &&
         (ASC->HasMatchingGameplayTag(StudyTags::State_Dead)
@@ -34,6 +34,7 @@ void AEnemyCombatController::Tick(float DeltaSeconds)
          || ASC->HasMatchingGameplayTag(StudyTags::Status_Staggered)
          || ASC->HasMatchingGameplayTag(StudyTags::Status_Shocked)
          || ASC->HasMatchingGameplayTag(StudyTags::State_Attacking)
+         || ASC->HasMatchingGameplayTag(StudyTags::State_Knockdown)
          || ASC->HasMatchingGameplayTag(StudyTags::State_HitReact)))
     {
         return;
@@ -78,11 +79,10 @@ void AEnemyCombatController::Tick(float DeltaSeconds)
     if (Dist > AttackRange)
     {
         const float Now = GetWorld()->GetTimeSeconds();
-        // 돌진은 같은 높이(층)에서만 — 높이차가 크면(다른 층) 수평 돌진하다 벽에 박으므로 금지
+        // 돌진은 같은 높이에서만(다른 층이면 벽에 박음)
         const bool bChargeHeightOK = (FMath::Abs(VertDiff) <= ChargeMaxHeightDiff);
 
-        // 벽이 가로막으면 돌진 금지(벽에 박고 계속 대쉬만 쓰는 루프 방지) — 보스→플레이어 직선에
-        // World 정적 장애물이 있으면 막힌 것으로 보고, 돌진 대신 navmesh로 우회 접근하게 한다.
+        // 직선에 벽 있으면 돌진 금지(박는 루프 방지) → navmesh 우회
         bool bClearChargePath = true;
         {
             FHitResult WallHit;
@@ -110,19 +110,10 @@ void AEnemyCombatController::Tick(float DeltaSeconds)
             }
         }
 
-        // 돌진 준비(쿨다운) 중엔 걸어서 접근하지 않고 제자리 대기 — "앞까지 와서 친다" 방지
-        if (bInChargeBand)
-        {
-            StopMovement();
-            ComboCount = 0;
-            return;
-        }
-
-        // 접근: navmesh 길찾기로 추격(계단 등반/벽 우회 → 다른 층 플레이어도 따라감).
-        // 이미 이동 중이면 재요청 안 함(목표 액터 추적). navmesh 없거나 경로 없으면 직선 이동 폴백.
+        // 접근: navmesh 추격(계단/우회). 이미 이동 중이면 재요청 안 함. 경로 없으면 직선 폴백.
         if (GetMoveStatus() != EPathFollowingStatus::Moving)
         {
-            // 공격 사거리 안쪽까지 확실히 접근(정지 거리 = 공격 사거리의 절반) — "멀리서 멈춰 안 때림" 방지
+            // 정지 거리 = 사거리 절반(멀리서 멈춰 안 때리는 것 방지)
             const float Accept = FMath::Max(50.f, AttackRange * 0.5f);
             const EPathFollowingRequestResult::Type MoveRes = MoveToActor(Target, Accept);
             if (MoveRes == EPathFollowingRequestResult::Failed)
@@ -136,7 +127,7 @@ void AEnemyCombatController::Tick(float DeltaSeconds)
     {
         StopMovement();   // 사거리 안 — 이동 멈추고 공격
 
-        // 플레이어가 공중에 높이 떠 있으면(머리 위) 공격하지 않음 — 허공질 방지
+        // 플레이어가 머리 위 공중이면 공격 안 함(허공질 방지)
         if (VertDiff > MaxAttackHeight)
         {
             ComboCount = 0;

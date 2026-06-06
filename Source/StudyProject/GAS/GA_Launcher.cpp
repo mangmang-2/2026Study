@@ -72,8 +72,7 @@ void UGA_Launcher::DoMeleeTrace()
 
     if (bHit)
     {
-        // 적중하면 플레이어도 살짝 떠서 공중 콤보로 이어갈 수 있게
-        // (상승은 정상 중력으로 솟구치고, 정점부터 체공 중력으로 떠 있게)
+        // 적중하면 플레이어도 살짝 떠서 공중 콤보로 연계
         if (ACharacter* Char = Cast<ACharacter>(GetAvatarActorFromActorInfo()))
         {
             ApplyLaunchGravity();
@@ -85,8 +84,7 @@ void UGA_Launcher::DoMeleeTrace()
 
 void UGA_Launcher::OnMontageFinished()
 {
-    // 런처 몽타주가 끝나도 플레이어는 아직 공중(공중 콤보 중)일 수 있음 → 중력 복원은
-    // 착지(OnSelfLanded)에서만. 여기선 어빌리티만 종료.
+    // 몽타주가 끝나도 아직 공중일 수 있어 중력 복원은 착지에서만. 여기선 어빌만 종료.
     EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
 }
 

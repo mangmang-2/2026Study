@@ -7,9 +7,8 @@
 class UAnimMontage;
 
 /**
- * 적 공중 띄우기 반응 어빌리티.
- * Event.Launched 게임플레이 이벤트로 자동 트리거되어 캐릭터를 위로 발사하고
- * 공중 피격 몽타주를 재생, 착지(LandedDelegate) 시 넉다운(쓰러짐) 몽타주를 재생한다.
+ * 적 공중 띄우기 반응. Event.Launched로 트리거 → 위로 발사 + 공중 피격 몽타주,
+ * 착지 시 넉다운 → 기상.
  */
 UCLASS()
 class STUDYPROJECT_API UGA_AirLaunch : public UCombatGameplayAbility
@@ -49,7 +48,7 @@ protected:
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Combat|Slam")
     TObjectPtr<UAnimMontage> SlamMontage = nullptr;
 
-    // 슬램 하강 속도(아래로 발사). 이벤트 매그니튜드가 오면 그 값 사용.
+    // 슬램 하강 속도(이벤트 매그니튜드 오면 그 값)
     UPROPERTY(EditDefaultsOnly, Category = "Combat|Slam")
     float SlamDownSpeed = 1200.f;
 
@@ -57,7 +56,7 @@ protected:
     UPROPERTY(EditDefaultsOnly, Category = "Combat|Slam")
     float SlamGravityScale = 3.0f;
 
-    // 슬램 시 공격자 반대 방향(수평)으로 밀어 사선으로 내리꽂히게. 0=수직.
+    // 공격자 반대로 미는 수평 속도(0=수직)
     UPROPERTY(EditDefaultsOnly, Category = "Combat|Slam")
     float SlamHorizSpeed = 450.f;
 

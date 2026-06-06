@@ -32,7 +32,7 @@ ACharacterBase::ACharacterBase()
     EnhanceComp   = CreateDefaultSubobject<UEnhanceComponent>  (TEXT("EnhanceComp"));
     ShopComp      = CreateDefaultSubobject<UShopComponent>     (TEXT("ShopComp"));
 
-    // GAS — ASC + AttributeSet (AttributeSet은 소유 액터의 서브오브젝트라 ASC에 자동 등록됨)
+    // GAS — ASC + AttributeSet(서브오브젝트라 ASC에 자동 등록)
     AbilitySystemComponent = CreateDefaultSubobject<UCombatAbilitySystemComponent>(TEXT("AbilitySystemComponent"));
     AbilitySystemComponent->SetIsReplicated(true);
     AbilitySystemComponent->SetReplicationMode(EGameplayEffectReplicationMode::Mixed);
@@ -68,7 +68,7 @@ ACharacterBase::ACharacterBase()
     WeaponAuraVFX->SetupAttachment(GetMesh());
     WeaponAuraVFX->SetAutoActivate(false);
 
-    // 카메라(SpringArm 프로브)가 다른 캐릭터 몸에 붙어 당겨지지 않게 Camera 채널 무시(벽 충돌은 유지)
+    // 카메라가 다른 캐릭터에 당겨지지 않게 Camera 채널 무시(벽 충돌은 유지)
     GetCapsuleComponent()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECR_Ignore);
     GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECR_Ignore);
 }
@@ -169,7 +169,7 @@ void ACharacterBase::InitAbilitySystem()
         return;
     }
 
-    // owner=this, avatar=this (Pawn 소유 ASC). 서버/클라 모두 호출 안전(내부에서 갱신).
+    // Pawn 소유 ASC — 서버/클라 모두 호출 안전
     AbilitySystemComponent->InitAbilityActorInfo(this, this);
 
     if (!HasAuthority() || bAbilitiesGranted)
@@ -232,7 +232,7 @@ void ACharacterBase::BeginPlay()
             .AddUObject(this, &ACharacterBase::OnMoveStatusTagChanged);
     }
 
-    // 데칼(보스 워닝 데칼 등)이 플레이어 메시에 묻지 않도록 — 데칼은 바닥에만
+    // 데칼이 메시에 묻지 않게(바닥에만)
     USkeletalMeshComponent* MeshParts[] = {
         GetMesh(), HeadMesh, BodyMesh, HandsMesh, LegsMesh, FeetMesh, ShoulderMesh, ArmsMesh, WeaponMesh, ShieldMesh };
     for (USkeletalMeshComponent* Part : MeshParts)
@@ -251,6 +251,16 @@ void ACharacterBase::BeginPlay()
     {
         LoadCharacter();
     }
+}
+
+void ACharacterBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+    // 종료 시 영속 저장(인벤 안 열고 꺼도 유지)
+    if (HasAuthority())
+    {
+        SaveCharacter();
+    }
+    Super::EndPlay(EndPlayReason);
 }
 
 void ACharacterBase::OnMoveStatusTagChanged(const FGameplayTag /*Tag*/, int32 /*NewCount*/)
@@ -315,16 +325,25 @@ void ACharacterBase::SaveCharacter()
         }
     }
 
-    // 장착 저장
+    // 장비 세트(로드아웃) 저장 — 장착 아이템은 세트에 보관(가방에 없음)되므로 세트 데이터로 저장
     if (EquipmentComp)
     {
-        for (uint8 i = 0; i < (uint8)EEquipSlot::Shield + 1; ++i)
+        for (int32 i = 0; i < UEquipmentComponent::NumLoadouts; ++i)
         {
-            EEquipSlot Slot = (EEquipSlot)i;
-            int32 ItemID = EquipmentComp->GetEquippedItemID(Slot);
-            if (ItemID != 0) SaveData->EquipmentData.EquippedItems.Add(Slot, ItemID);
+            const FEquippedItemsData L = EquipmentComp->GetLoadout(i);
+            FLoadoutSaveEntry Entry;
+            for (const auto& Pair : L.GetAll())
+            {
+                Entry.Items.Add(Pair.Key, Pair.Value);
+                Entry.Enhances.Add(Pair.Key, L.GetEnhance(Pair.Key));
+            }
+            SaveData->Loadouts.Add(Entry);
         }
+        SaveData->ActiveLoadout = EquipmentComp->GetActiveLoadout();
     }
+
+    // 골드 저장
+    SaveData->PlayerData.Gold = Gold;
 
     UGameplayStatics::SaveGameToSlot(SaveData, SaveSlotName, 0);
 }
@@ -335,26 +354,42 @@ void ACharacterBase::LoadCharacter()
         UGameplayStatics::LoadGameFromSlot(SaveSlotName, 0));
     if (!SaveData) return;
 
-    // 인벤토리 복원
+    // 인벤토리 복원(강화 레벨 보존)
     if (InventoryComp)
     {
         for (const FItemSaveEntry& Entry : SaveData->InventoryData.Items)
         {
-            InventoryComp->AddItem(Entry.ItemID, Entry.Quantity);
+            if (Entry.EnhanceLevel > 0)
+            {
+                InventoryComp->AddItemWithEnhance(Entry.ItemID, Entry.EnhanceLevel);
+            }
+            else
+            {
+                InventoryComp->AddItem(Entry.ItemID, Entry.Quantity);
+            }
         }
     }
 
-    // 장착 복원
+    // 골드 복원(서버 권위)
+    Gold = SaveData->PlayerData.Gold;
+
+    // 장비 세트(로드아웃) 복원 — 세트에 보관된 장비를 직접 복원(가방 거치지 않음)
     if (EquipmentComp)
     {
-        for (const auto& Pair : SaveData->EquipmentData.EquippedItems)
+        for (int32 i = 0; i < SaveData->Loadouts.Num() && i < UEquipmentComponent::NumLoadouts; ++i)
         {
-            // 인벤에서 찾아서 장착
-            if (InventoryComp)
+            FEquippedItemsData Data;
+            for (const auto& Pair : SaveData->Loadouts[i].Items)
             {
-                int32 SlotIdx = InventoryComp->FindItemByID(Pair.Value);
-                if (SlotIdx != -1) EquipmentComp->Equip(Pair.Value, SlotIdx);
+                Data.Set(Pair.Key, Pair.Value);
             }
+            for (const auto& Pair : SaveData->Loadouts[i].Enhances)
+            {
+                Data.SetEnhance(Pair.Key, Pair.Value);
+            }
+            EquipmentComp->LoadLoadout(i, Data);
         }
+        EquipmentComp->SetActiveLoadout(SaveData->ActiveLoadout);
+        EquipmentComp->InitFromActiveLoadout();   // 활성 세트를 현재 장비로 반영 + 메시 갱신
     }
 }

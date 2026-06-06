@@ -23,4 +23,9 @@ protected:
 
     virtual void NativeConstruct() override;
     virtual void NativeDestruct() override;
+
+private:
+    // 인벤 우클릭 → 강화 대상 지정
+    UFUNCTION()
+    void HandleInvItemSelected(int32 SlotIndex);
 };

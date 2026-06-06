@@ -41,6 +41,10 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Inventory")
     void ShowContextMenu(int32 SlotIndex);
 
+    // 우클릭 시 바로 장착할지(메인 인벤=true). 강화/상점 패널은 false로 두면 우클릭=선택 알림만.
+    UFUNCTION(BlueprintCallable, Category = "Inventory")
+    void SetRightClickEquips(bool bEnable) { bRightClickEquips = bEnable; }
+
     UPROPERTY(BlueprintAssignable, Category = "Inventory")
     FOnItemSelected OnItemSelected;
 
@@ -72,12 +76,23 @@ protected:
     UPROPERTY(EditDefaultsOnly, Category = "Inventory")
     float TooltipDelay = 1.0f;   // 마우스를 올리고 툴팁이 뜨기까지 대기 시간(초)
 
+    // 현재 선택된 필터/정렬 버튼 강조 색 / 비활성 색
+    UPROPERTY(EditAnywhere, Category = "Style")
+    FLinearColor ActiveToolbarColor = FLinearColor(1.0f, 0.78f, 0.25f, 1.0f);
+    UPROPERTY(EditAnywhere, Category = "Style")
+    FLinearColor NormalToolbarColor = FLinearColor(0.22f, 0.22f, 0.25f, 1.0f);
+
 private:
     TWeakObjectPtr<UInventoryComponent> BoundInventory;
 
     FTimerHandle TooltipTimerHandle;
     int32 PendingTooltipSlot = -1;
     void ShowPendingTooltip();
+
+    // 툴바에서 마지막으로 누른 버튼(0=전체,1=무기,2=방어구,3=소모품,4=희귀도순,5=이름순). 하나만 강조.
+    int32 ActiveToolbarIndex = 0;
+
+    bool bRightClickEquips = true;
 
     UFUNCTION() void HandleSlotHovered(int32 SlotIndex);
     UFUNCTION() void HandleSlotRightClicked(int32 SlotIndex);
@@ -91,4 +106,7 @@ private:
     UFUNCTION() void OnFilterConsumableClicked();
     UFUNCTION() void OnSortRarityClicked();
     UFUNCTION() void OnSortNameClicked();
+
+    // 현재 필터/정렬에 맞춰 툴바 버튼 강조 갱신
+    void RefreshToolbarButtons();
 };

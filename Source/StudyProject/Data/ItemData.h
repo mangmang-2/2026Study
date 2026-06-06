@@ -99,8 +99,7 @@ struct STUDYPROJECT_API FItemData : public FTableRowBase
     UPROPERTY(EditAnywhere, BlueprintReadOnly)
     TSoftObjectPtr<UStaticMesh> ItemStaticMesh;
 
-    // 무기 손소켓 부착 시 적용할 상대 트랜스폼(그립 정렬). 스태틱 무기는 피벗이 중앙이라
-    // 손잡이가 손에 오도록 Translation/Rotation을 조정. 기본=항등(중앙 잡음).
+    // 손소켓 부착 시 그립 정렬용 상대 트랜스폼(기본=항등, 중앙 잡음)
     UPROPERTY(EditAnywhere, BlueprintReadOnly)
     FTransform GripTransform;
 

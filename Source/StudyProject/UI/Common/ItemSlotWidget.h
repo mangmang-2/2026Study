@@ -54,8 +54,7 @@ public:
     FOnSlotDrop OnSlotDrop;
 
 protected:
-    // UserWidget 인스턴스는 BindWidget 대신 NativeConstruct에서 GetWidgetFromName으로 수동 바인딩
-    // (BindWidget UPROPERTY 이름이 BP 자동 변수 이름과 충돌하기 때문)
+    // UserWidget 인스턴스는 BindWidget 대신 NativeConstruct에서 수동 바인딩(이름 충돌 방지)
     UPROPERTY()
     TObjectPtr<UItemIconWidget> CachedIconWidget = nullptr;
 

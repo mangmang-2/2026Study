@@ -29,8 +29,7 @@ public:
     // IAbilitySystemInterface
     virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
 
-    // 타격 피드백(히트VFX + 피격자 플래시 + 데미지넘버)을 모든 클라이언트에 재생.
-    // 서버 권위에서만 호출 → 멀티 동기화. 데미지넘버는 각 클라 로컬 플레이어 화면에만 표시.
+    // 타격 피드백(VFX+플래시+데미지넘버)을 전 클라에 재생. 서버 권위에서만 호출.
     UFUNCTION(NetMulticast, Unreliable)
     void Multicast_HitFeedback(class UNiagaraSystem* VFX, FVector Location, FVector Normal,
         AActor* Victim, int32 Damage, bool bCritical);
@@ -72,7 +71,7 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Gold")
     void AddGold(int32 Amount);
 
-    // 기준 걷기 속도 변경(스프린트/보스 페이즈 등) — 즉시 상태이상(둔화/스턴) 반영해 MaxWalkSpeed 적용
+    // 기준 걷기 속도 변경 — 둔화/스턴 반영해 MaxWalkSpeed 즉시 적용
     void SetBaseWalkSpeed(float NewBaseSpeed);
 
     // 세이브/로드
@@ -117,6 +116,7 @@ public:
 
 protected:
     virtual void BeginPlay() override;
+    virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
     virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
     // ── GAS ──────────────────────────────────────────────────────────
@@ -143,8 +143,7 @@ protected:
     bool bAbilitiesGranted = false;
 
     // ── 이동속도(상태이상 둔화/스턴 반영) ────────────────────────────
-    // 평상시 기준 걷기 속도(스프린트/보스 페이즈가 SetBaseWalkSpeed로 갱신).
-    // Status.Shocked(스턴)/Status.Chilled(둔화) 태그에 따라 RefreshMoveSpeed가 MaxWalkSpeed를 재계산.
+    // 평상시 기준 속도. RefreshMoveSpeed가 둔화/스턴 태그에 따라 MaxWalkSpeed 재계산.
     float BaseWalkSpeed = 0.f;
 
     // Status.Chilled일 때 BaseWalkSpeed에 곱하는 둔화 배율

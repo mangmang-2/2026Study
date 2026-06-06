@@ -26,12 +26,12 @@ void UInventoryWidget::NativeConstruct()
     if (SortNameButton)         SortNameButton->OnClicked.AddUniqueDynamic(this, &UInventoryWidget::OnSortNameClicked);
 }
 
-void UInventoryWidget::OnFilterAllClicked()        { FilterByType(EItemType::All); }
-void UInventoryWidget::OnFilterWeaponClicked()     { FilterByType(EItemType::Weapon); }
-void UInventoryWidget::OnFilterArmorClicked()      { FilterByType(EItemType::Armor); }
-void UInventoryWidget::OnFilterConsumableClicked() { FilterByType(EItemType::Consumable); }
-void UInventoryWidget::OnSortRarityClicked()       { SortItems(ESortMode::ByRarity); }
-void UInventoryWidget::OnSortNameClicked()         { SortItems(ESortMode::ByName); }
+void UInventoryWidget::OnFilterAllClicked()        { ActiveToolbarIndex = 0; FilterByType(EItemType::All); }
+void UInventoryWidget::OnFilterWeaponClicked()     { ActiveToolbarIndex = 1; FilterByType(EItemType::Weapon); }
+void UInventoryWidget::OnFilterArmorClicked()      { ActiveToolbarIndex = 2; FilterByType(EItemType::Armor); }
+void UInventoryWidget::OnFilterConsumableClicked() { ActiveToolbarIndex = 3; FilterByType(EItemType::Consumable); }
+void UInventoryWidget::OnSortRarityClicked()       { ActiveToolbarIndex = 4; SortItems(ESortMode::ByRarity); }
+void UInventoryWidget::OnSortNameClicked()         { ActiveToolbarIndex = 5; SortItems(ESortMode::ByName); }
 
 void UInventoryWidget::NativeDestruct()
 {
@@ -102,6 +102,8 @@ void UInventoryWidget::RefreshInventory()
 
     GridWidget->RefreshGrid(Slots, SourceIndices);
 
+    RefreshToolbarButtons();
+
     for (int32 i = 0; i < BoundInventory->GetMaxSlots(); ++i)
     {
         UItemSlotWidget* SlotW = GridWidget->GetSlotWidget(i);
@@ -118,6 +120,24 @@ void UInventoryWidget::RefreshInventory()
         SlotW->OnSlotRightClicked.AddDynamic(this, &UInventoryWidget::HandleSlotRightClicked);
         SlotW->OnSlotDrop.AddDynamic(this, &UInventoryWidget::HandleSlotDrop);
     }
+}
+
+void UInventoryWidget::RefreshToolbarButtons()
+{
+    auto Tint = [this](UButton* B, int32 Idx)
+    {
+        if (B != nullptr)
+        {
+            B->SetBackgroundColor(Idx == ActiveToolbarIndex ? ActiveToolbarColor : NormalToolbarColor);
+        }
+    };
+    // 마지막에 누른 버튼 하나만 강조(필터/정렬 통틀어)
+    Tint(FilterAllButton,        0);
+    Tint(FilterWeaponButton,     1);
+    Tint(FilterArmorButton,      2);
+    Tint(FilterConsumableButton, 3);
+    Tint(SortRarityButton,       4);
+    Tint(SortNameButton,         5);
 }
 
 void UInventoryWidget::FilterByType(EItemType Type)
@@ -171,8 +191,7 @@ void UInventoryWidget::ShowTooltip(int32 SlotIndex)
     // 크기 계산 전 레이아웃 갱신(내용에 따라 desired size가 바뀌므로)
     Tooltip->ForceLayoutPrepass();
 
-    // Tooltip은 InventoryWidget(→ScreenWidget) 안에 중첩돼 있으므로
-    // 커서(절대 좌표)를 Tooltip 부모 캔버스의 "로컬 좌표"로 변환해야 위치가 맞음.
+    // Tooltip이 중첩돼 있어 커서 절대좌표를 부모 캔버스 로컬좌표로 변환해야 함
     UPanelWidget* TipParent = Tooltip->GetParent();
     const FGeometry ParentGeo = TipParent ? TipParent->GetCachedGeometry() : GetCachedGeometry();
     const FVector2D AbsCursor = FSlateApplication::Get().GetCursorPos();
@@ -256,7 +275,56 @@ void UInventoryWidget::ShowPendingTooltip()
 
 void UInventoryWidget::HandleSlotRightClicked(int32 SlotIndex)
 {
-    ShowContextMenu(SlotIndex);
+    // 인벤 컨텍스트가 아니면(상점/거래 등) 기존 팝업 유지
+    if (Context != ESlotContext::Inventory)
+    {
+        ShowContextMenu(SlotIndex);
+        return;
+    }
+
+    // 장착 모드가 아니면(강화창 등) 선택만 알림 — 임베더가 처리(예: 강화 대상 지정)
+    if (bRightClickEquips == false)
+    {
+        if (BoundInventory.IsValid() && BoundInventory->GetSlot(SlotIndex).IsEmpty() == false)
+        {
+            OnItemSelected.Broadcast(SlotIndex);
+        }
+        return;
+    }
+
+    if (BoundInventory.IsValid() == false)
+    {
+        return;
+    }
+    const FInventorySlot& InvSlot = BoundInventory->GetSlot(SlotIndex);
+    if (InvSlot.IsEmpty())
+    {
+        return;
+    }
+
+    UItemSubsystem* ItemSub = GetWorld() ? GetWorld()->GetGameInstance()->GetSubsystem<UItemSubsystem>() : nullptr;
+    const FItemData* Data = ItemSub ? ItemSub->GetItemData(InvSlot.ItemID) : nullptr;
+    if (Data == nullptr)
+    {
+        return;
+    }
+
+    ACharacter* Char = Cast<ACharacter>(GetOwningPlayerPawn());
+    if (Char == nullptr)
+    {
+        return;
+    }
+
+    if (Data->EquipSlot != EEquipSlot::None)
+    {
+        // 우클릭 = 바로 장착
+        UInventoryActionHelper::HandleDrop(ESlotContext::Inventory, ESlotContext::Equipment, SlotIndex, 0, Char);
+    }
+    else if (Data->ItemType == EItemType::Consumable)
+    {
+        // 소비 아이템은 사용
+        BoundInventory->UseItem(SlotIndex);
+    }
 }
 
 void UInventoryWidget::HandleSlotDrop(ESlotContext SourceContext, int32 FromSlot, int32 ToSlot)

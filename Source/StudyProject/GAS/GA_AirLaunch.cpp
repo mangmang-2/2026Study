@@ -11,10 +11,10 @@ UGA_AirLaunch::UGA_AirLaunch()
 {
     NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::ServerOnly;
 
-    // 공중 콤보가 Event.Launched를 다시 쏘면(저글) 이미 떠 있어도 재발동되게
+    // 저글 시 떠 있어도 재발동
     bRetriggerInstancedAbility = true;
 
-    // Event.Launched(저글) / Event.Slammed(마무리 내려찍기) 수신 시 자동 활성화
+    // Launched(저글)/Slammed(내려찍기) 이벤트로 자동 활성화
     FAbilityTriggerData Trigger;
     Trigger.TriggerTag = StudyTags::Event_Launched;
     Trigger.TriggerSource = EGameplayAbilityTriggerSource::GameplayEvent;
@@ -54,7 +54,7 @@ void UGA_AirLaunch::ActivateAbility(
     const bool bSlam = (TriggerEventData != nullptr) && (TriggerEventData->EventTag == StudyTags::Event_Slammed);
     const float Mag = (TriggerEventData != nullptr) ? TriggerEventData->EventMagnitude : 0.f;
 
-    // 착지 콜백 등록(슬램/런치 공통 — 착지 시 넉다운→기상)
+    // 착지 콜백(착지 시 넉다운→기상)
     Char->LandedDelegate.AddDynamic(this, &UGA_AirLaunch::OnLanded);
 
     if (bSlam)
@@ -71,7 +71,7 @@ void UGA_AirLaunch::ActivateAbility(
             Move->GravityScale = SlamGravityScale;   // 빠르게 내리꽂힘
         }
 
-        // 공격자 반대 방향(수평)으로 밀어 사선으로 내리꽂힘
+        // 공격자 반대로 밀어 사선 낙하
         FVector Horiz = FVector::ZeroVector;
         if (TriggerEventData != nullptr && TriggerEventData->Instigator != nullptr)
         {
@@ -103,7 +103,6 @@ void UGA_AirLaunch::ActivateAbility(
     ApplyLaunchGravity();
     Char->LaunchCharacter(FVector(0.f, 0.f, LaunchZ), true, true);
 
-    // 공중 피격 몽타주(있으면)
     if (AirHitMontage != nullptr)
     {
         UAbilityTask_PlayMontageAndWait* MontageTask =
@@ -123,10 +122,10 @@ void UGA_AirLaunch::OnLanded(const FHitResult& Hit)
         Char->LandedDelegate.RemoveDynamic(this, &UGA_AirLaunch::OnLanded);
     }
 
-    // 땅에 닿았으니 원래 중력으로 복원
+    // 원래 중력으로 복원
     RestoreGravity();
 
-    // 넉다운(쓰러져 일어나는 중) 상태 표시 — 이 동안엔 타격 불가
+    // 넉다운 표시(이 동안 타격 불가)
     if (UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo())
     {
         ASC->AddLooseGameplayTag(StudyTags::State_Knockdown);
@@ -154,15 +153,14 @@ void UGA_AirLaunch::OnLanded(const FHitResult& Hit)
 
 void UGA_AirLaunch::OnKnockdownFinished()
 {
-    // 넉다운 몽타주를 기상 몽타주로 교체할 때 넉다운 태스크의 OnInterrupted가 다시 들어오므로
-    // 한 번만 기상으로 진행하도록 가드(중복 시작 시 첫 기상이 끊겨 안 보이는 버그 방지)
+    // 몽타주 교체 시 넉다운 OnInterrupt가 재진입하므로 한 번만 기상하도록 가드
     if (bGetUpStarted)
     {
         return;
     }
     bGetUpStarted = true;
 
-    // 넉다운(쓰러짐) 후 일어서는 몽타주 재생 → 끝나면 어빌 종료
+    // 기상 몽타주 → 끝나면 어빌 종료
     if (GetUpMontage == nullptr)
     {
         OnGetUpFinished();
@@ -185,7 +183,7 @@ void UGA_AirLaunch::OnKnockdownFinished()
 
 void UGA_AirLaunch::OnGetUpFinished()
 {
-    // 기상 완료 — 넉다운 상태 해제(다시 타격 가능)
+    // 기상 완료 — 넉다운 해제
     if (UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo())
     {
         ASC->RemoveLooseGameplayTag(StudyTags::State_Knockdown);
@@ -206,7 +204,7 @@ void UGA_AirLaunch::ApplyLaunchGravity()
         return;
     }
 
-    // 이미 관리 중이면 원래 중력값을 덮어쓰지 않음(체공 중력 0.35가 저장되는 사고 방지)
+    // 이미 관리 중이면 원래 중력값 보존(체공 중력 저장 방지)
     if (bGravityActive == false)
     {
         SavedGravityScale = Move->GravityScale;
@@ -234,7 +232,7 @@ void UGA_AirLaunch::CheckApex()
         return;
     }
 
-    // 정점 도달(상승 속도가 0 이하) → 체공 중력으로 전환 후 감시 종료
+    // 정점(상승속도 ≤0) → 체공 중력 전환
     if (Move->Velocity.Z <= 0.f)
     {
         Move->GravityScale = HangGravityScale;
@@ -271,7 +269,7 @@ void UGA_AirLaunch::EndAbility(
     bool bReplicateEndAbility,
     bool bWasCancelled)
 {
-    // 안전하게 착지 델리게이트 해제 + 중력 복원(취소돼도 떠 있는 채 안 남게)
+    // 취소돼도 떠 있는 채 안 남게 정리
     if (ACharacter* Char = Cast<ACharacter>(GetAvatarActorFromActorInfo()))
     {
         Char->LandedDelegate.RemoveDynamic(this, &UGA_AirLaunch::OnLanded);

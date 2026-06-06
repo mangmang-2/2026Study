@@ -2,6 +2,7 @@
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Components/CapsuleComponent.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputActionValue.h"
@@ -39,6 +40,7 @@
 #include "Engine/World.h"
 #include "Character/EnemyCharacter.h"
 #include "UI/HUD/EnemySpawnerWidget.h"
+#include "GameFramework/Character.h"
 
 namespace
 {
@@ -102,14 +104,14 @@ APlayerCharacter::APlayerCharacter()
     // TradeComponent
     TradeComp = CreateDefaultSubobject<UTradeComponent>(TEXT("TradeComp"));
 
-    // InteractionDetector — 범위 내 IInteractable 감지
+    // 범위 내 IInteractable 감지
     InteractionDetector = CreateDefaultSubobject<UInteractionDetectorComponent>(TEXT("InteractionDetector"));
     InteractionDetector->SetupAttachment(RootComponent);
 
     // 록온 컴포넌트
     LockOnComp = CreateDefaultSubobject<ULockOnComponent>(TEXT("LockOnComp"));
 
-    // 임시 테스트용 강화 화면 단축키(K) 기본값 — 에디터에서 재지정 가능
+    // 강화 화면 단축키 기본값(에디터에서 재지정)
     static ConstructorHelpers::FObjectFinder<UInputAction> EnhanceIAFinder(
         TEXT("/Game/Input/Actions/IA_Enhance.IA_Enhance"));
     if (EnhanceIAFinder.Succeeded()) EnhanceAction = EnhanceIAFinder.Object;
@@ -209,6 +211,9 @@ void APlayerCharacter::BeginPlay()
             TradeComp->OnTradeResult.AddDynamic(this, &APlayerCharacter::HandleTradeResult);
         }
     }
+
+    InitialMeshTransform = GetMesh()->GetRelativeTransform();
+    InitialMeshProfile = GetMesh()->GetCollisionProfileName();
 }
 
 void APlayerCharacter::NotifyControllerChanged()
@@ -226,7 +231,6 @@ void APlayerCharacter::NotifyControllerChanged()
                 Subsystem->AddMappingContext(DefaultMappingContext, 0);
         }
     }
-    DebugDropItem(0);
 }
 
 void APlayerCharacter::Tick(float DeltaSeconds)
@@ -310,6 +314,25 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
     {
         EIC->BindAction(ParryAction, ETriggerEvent::Started, this, &APlayerCharacter::HandleParry);
     }
+
+    // ── 장비 세트(로드아웃) ───────────────────────────────────────────
+    if (LoadoutSlot1Action)
+    {
+        EIC->BindAction(LoadoutSlot1Action, ETriggerEvent::Started, this, &APlayerCharacter::HandleLoadoutSlot1);
+    }
+    if (LoadoutSlot2Action)
+    {
+        EIC->BindAction(LoadoutSlot2Action, ETriggerEvent::Started, this, &APlayerCharacter::HandleLoadoutSlot2);
+    }
+    if (LoadoutSlot3Action)
+    {
+        EIC->BindAction(LoadoutSlot3Action, ETriggerEvent::Started, this, &APlayerCharacter::HandleLoadoutSlot3);
+    }
+
+    // 숫자키 1/2/3 → 장비 세트 전환(IMC/IA 설정 없이 직접 바인딩)
+    PlayerInputComponent->BindKey(EKeys::One,   IE_Pressed, this, &APlayerCharacter::HandleLoadoutSlot1);
+    PlayerInputComponent->BindKey(EKeys::Two,   IE_Pressed, this, &APlayerCharacter::HandleLoadoutSlot2);
+    PlayerInputComponent->BindKey(EKeys::Three, IE_Pressed, this, &APlayerCharacter::HandleLoadoutSlot3);
 }
 
 // ── 입력 핸들러 ──────────────────────────────────────────────────────────────
@@ -322,7 +345,6 @@ void APlayerCharacter::HandleMove(const FInputActionValue& Value)
     // 공격/회피/처형 등 모션 중에는 실제 이동은 무시
     if (UCombatAbilitySystemComponent* ASC = Cast<UCombatAbilitySystemComponent>(GetAbilitySystemComponent()))
     {
-        // 모션 잠금 중이거나 감전(스턴) 상태면 이동 입력 무시
         if (ASC->IsMovementLocked() || ASC->HasMatchingGameplayTag(StudyTags::Status_Shocked))
         {
             return;
@@ -370,8 +392,7 @@ void APlayerCharacter::HandleInteract()
 
 void APlayerCharacter::HandleUsePotion()
 {
-    // 인벤에서 HP 포션(ItemType==Consumable) 첫 번째 슬롯을 찾아 사용
-    // 2단계 GAS UseItem GA로 대체 예정 — 현재는 빈 훅
+    // 2단계 GAS UseItem GA로 대체 예정(현재 빈 훅)
     if (UInventoryComponent* Inv = FindComponentByClass<UInventoryComponent>())
     {
         // Inv->UseFirstPotion();  // 2단계에서 구현
@@ -443,7 +464,7 @@ void APlayerCharacter::UpdateInteractionPrompt()
     FVector2D Screen;
     if (PC->ProjectWorldLocationToScreen(WorldPos, Screen, false))
     {
-        // PromptText가 위젯 내부에서 중앙 정렬이라 투영 지점에 그대로 배치 (오프셋 불필요)
+        // 위젯이 중앙 정렬이라 투영 지점에 그대로 배치
         const float DPI = UWidgetLayoutLibrary::GetViewportScale(this);
         const FVector2D Logical = (DPI > 0.f) ? (Screen / DPI) : Screen;
         InteractionPromptW->SetPositionInViewport(Logical, false);
@@ -483,6 +504,31 @@ void APlayerCharacter::HandleEnhance()
     else
     {
         OpenEnhance();
+    }
+}
+
+// ── 장비 세트(로드아웃) ───────────────────────────────────────────────────────
+
+void APlayerCharacter::HandleLoadoutSlot1()
+{
+    ApplyLoadoutSlot(0);
+}
+
+void APlayerCharacter::HandleLoadoutSlot2()
+{
+    ApplyLoadoutSlot(1);
+}
+
+void APlayerCharacter::HandleLoadoutSlot3()
+{
+    ApplyLoadoutSlot(2);
+}
+
+void APlayerCharacter::ApplyLoadoutSlot(int32 Index)
+{
+    if (UEquipmentComponent* Equip = GetEquipmentComponent())
+    {
+        Equip->ApplyLoadout(Index);
     }
 }
 
@@ -686,18 +732,7 @@ void APlayerCharacter::HandleDeath()
     }
     bIsDead = true;
 
-    // 입력/이동 정지
-    if (APlayerController* PC = Cast<APlayerController>(GetController()))
-    {
-        DisableInput(PC);
-    }
-    if (UCharacterMovementComponent* Move = GetCharacterMovement())
-    {
-        Move->StopMovementImmediately();
-        Move->DisableMovement();
-    }
-
-    // RespawnDelay 뒤 리스폰
+    // 입력/이동 정지와 래그돌은 GA_Death가 처리. 여기선 리스폰 타이머만.
     if (UWorld* World = GetWorld())
     {
         World->GetTimerManager().SetTimer(RespawnTimer, this, &APlayerCharacter::Respawn, FMath::Max(0.1f, RespawnDelay), false);
@@ -730,13 +765,34 @@ void APlayerCharacter::Respawn()
         EnableInput(PC);
     }
 
+    // GA_Death 취소(누운 상태 유지 중인 어빌리티 종료)
+    FGameplayTagContainer DeathTag;
+    DeathTag.AddTag(StudyTags::State_Dead);
+    GetAbilitySystemComponent()->CancelAbilities(&DeathTag);
+
+    // 래그돌 해제 + 메시 캡슐에 재부착·기본 트랜스폼 복원
+    if (USkeletalMeshComponent* CharacterMesh = GetMesh())
+    {
+        CharacterMesh->SetSimulatePhysics(false);
+        CharacterMesh->SetAllBodiesSimulatePhysics(false);
+        CharacterMesh->AttachToComponent(GetCapsuleComponent(), FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+        CharacterMesh->SetRelativeTransform(InitialMeshTransform);   // BeginPlay에서 저장한 값
+        CharacterMesh->SetCollisionProfileName(InitialMeshProfile);  // BeginPlay에서 저장
+    }
+
+    // 캡슐 콜리전 복원
+    GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+
+    // 이동 복원
+    GetCharacterMovement()->SetMovementMode(MOVE_Walking);
+
     bIsDead = false;
 }
 
 void APlayerCharacter::HandleSprintStart()
 {
     bIsSprinting = true;
-    // 직접 MaxWalkSpeed 대신 기준속도로 — 둔화/스턴 상태이상이 합성 반영됨
+    // 기준속도로 설정 — 둔화/스턴 상태이상이 합성 반영됨
     SetBaseWalkSpeed(600.f);
 }
 
@@ -748,11 +804,39 @@ void APlayerCharacter::HandleSprintEnd()
 
 // ── UI 열기/닫기 ─────────────────────────────────────────────────────────────
 
+bool APlayerCharacter::IsAnyScreenOpen() const
+{
+    return bInventoryOpen || bEnhanceOpen || bShopOpen || bTradeOpen || bPauseMenuOpen;
+}
+
+void APlayerCharacter::CloseExclusiveScreens()
+{
+    // 전체화면 패널은 동시에 하나만 — 새로 열기 전에 나머지 닫음(거래는 네트워크 흐름이라 제외)
+    if (bInventoryOpen)
+    {
+        CloseInventory();
+    }
+    if (bEnhanceOpen)
+    {
+        CloseEnhance();
+    }
+    if (bShopOpen)
+    {
+        CloseShop();
+    }
+    if (bPauseMenuOpen)
+    {
+        ClosePauseMenu();
+    }
+}
+
 void APlayerCharacter::OpenInventory()
 {
     if (bInventoryOpen) return;
     APlayerController* PC = Cast<APlayerController>(GetController());
     if (PC == nullptr) return;
+
+    CloseExclusiveScreens();
 
     if (InventoryScreenWidget == nullptr && InventoryScreenWidgetClass)
     {
@@ -771,12 +855,19 @@ void APlayerCharacter::OpenInventory()
 void APlayerCharacter::CloseInventory()
 {
     if (bInventoryOpen == false) return;
+
+    // 인벤 정리(아이템 이동 등) 디스크 반영. 장비 세트 저장은 장착/해제 시 자동 처리됨.
+    if (HasAuthority())
+    {
+        SaveCharacter();
+    }
+
     if (InventoryScreenWidget)
     {
         InventoryScreenWidget->RemoveFromParent();
     }
     bInventoryOpen = false;
-    if (bPauseMenuOpen == false)
+    if (IsAnyScreenOpen() == false)
     {
         SwitchToGameInput();
     }
@@ -787,6 +878,8 @@ void APlayerCharacter::OpenEnhance()
     if (bEnhanceOpen) return;
     APlayerController* PC = Cast<APlayerController>(GetController());
     if (PC == nullptr) return;
+
+    CloseExclusiveScreens();
 
     if (EnhanceScreenWidget == nullptr && EnhanceScreenWidgetClass)
     {
@@ -810,7 +903,7 @@ void APlayerCharacter::CloseEnhance()
         EnhanceScreenWidget->RemoveFromParent();
     }
     bEnhanceOpen = false;
-    if (bInventoryOpen == false && bPauseMenuOpen == false && bShopOpen == false)
+    if (IsAnyScreenOpen() == false)
     {
         SwitchToGameInput();
     }
@@ -831,6 +924,8 @@ void APlayerCharacter::OpenShop(int32 ShopID)
     if (bShopOpen) return;
     APlayerController* PC = Cast<APlayerController>(GetController());
     if (PC == nullptr) return;
+
+    CloseExclusiveScreens();
 
     if (ShopScreenWidget == nullptr && ShopScreenWidgetClass)
     {
@@ -858,7 +953,7 @@ void APlayerCharacter::CloseShop()
         ShopScreenWidget->RemoveFromParent();
     }
     bShopOpen = false;
-    if (bInventoryOpen == false && bPauseMenuOpen == false && bEnhanceOpen == false)
+    if (IsAnyScreenOpen() == false)
     {
         SwitchToGameInput();
     }
@@ -870,6 +965,8 @@ void APlayerCharacter::OpenTradeScreen()
     if (bTradeOpen) return;
     APlayerController* PC = Cast<APlayerController>(GetController());
     if (PC == nullptr) return;
+
+    CloseExclusiveScreens();
 
     if (TradeScreenWidget == nullptr && TradeScreenWidgetClass)
     {
@@ -890,7 +987,7 @@ void APlayerCharacter::CloseTradeScreen()
         TradeScreenWidget->RemoveFromParent();
     }
     bTradeOpen = false;
-    if (bInventoryOpen == false && bPauseMenuOpen == false && bEnhanceOpen == false && bShopOpen == false)
+    if (IsAnyScreenOpen() == false)
     {
         SwitchToGameInput();
     }
@@ -900,8 +997,7 @@ void APlayerCharacter::HandleTradeUpdated()
 {
     if (TradeComp == nullptr) return;
 
-    // 거래 시작(상대 지정) → 화면 열기, 거래 종료(상대 해제) → 화면 닫기
-    // (원격 클라이언트는 PartnerActor 복제(OnRep)로 이 경로를 탐)
+    // 거래 시작이면 화면 열기, 종료면 닫기(원격 클라는 PartnerActor OnRep로 진입)
     if (TradeComp->IsTrading() && bTradeOpen == false)
     {
         OpenTradeScreen();
@@ -947,6 +1043,23 @@ void APlayerCharacter::DebugTradeNearest()
     {
         UE_LOG(LogTemp, Warning, TEXT("[Trade] 거래할 다른 플레이어가 없습니다(2인 플레이 필요)."));
     }
+}
+
+void APlayerCharacter::DebugAddGold(int32 Amount)
+{
+    if (HasAuthority())
+    {
+        AddGold(Amount);
+    }
+    else
+    {
+        Server_DebugAddGold(Amount);
+    }
+}
+
+void APlayerCharacter::Server_DebugAddGold_Implementation(int32 Amount)
+{
+    AddGold(Amount);
 }
 
 void APlayerCharacter::EnhanceWeapon()
@@ -1010,6 +1123,8 @@ void APlayerCharacter::OpenPauseMenu()
     APlayerController* PC = Cast<APlayerController>(GetController());
     if (PC == nullptr) return;
 
+    CloseExclusiveScreens();
+
     if (PauseMenuWidget == nullptr && PauseMenuWidgetClass)
     {
         PauseMenuWidget = CreateWidget<UUserWidget>(PC, PauseMenuWidgetClass);
@@ -1032,7 +1147,7 @@ void APlayerCharacter::ClosePauseMenu()
     }
     bPauseMenuOpen = false;
     UGameplayStatics::SetGamePaused(this, false);
-    if (bInventoryOpen == false)
+    if (IsAnyScreenOpen() == false)
     {
         SwitchToGameInput();
     }
@@ -1046,8 +1161,7 @@ void APlayerCharacter::SwitchToUIInput()
     PC->SetShowMouseCursor(true);
     PC->SetInputMode(FInputModeGameAndUI());
 
-    // DefaultMappingContext는 유지 — I/F 등 토글 키가 UI 열린 상태에서도 살아있어야
-    // 닫고 다시 열 수 있음 (제거하면 닫은 뒤 키가 죽어 재오픈 불가)
+    // DefaultMappingContext 유지 — 제거하면 UI 닫은 뒤 토글 키가 죽어 재오픈 불가
     if (UEnhancedInputLocalPlayerSubsystem* Subsystem =
         ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PC->GetLocalPlayer()))
     {

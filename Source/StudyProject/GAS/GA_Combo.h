@@ -9,12 +9,9 @@ class UAnimMontage;
 class UDataTable;
 
 /**
- * 지상 콤보 어빌리티 — 데이터 기반(무기별 DataTable).
- * Input.Attack로 활성화. 한 번의 활성화 동안 콤보 전체를 관리한다.
- * 공격 중 같은 입력이 다시 들어오면(ASC가 NotifyComboInput 호출) 다음 타를 버퍼에 예약하고,
- * 현재 몽타주가 끝나며 블렌드아웃되는 시점에 idle로 돌아가지 않고 바로 다음 타로 크로스블렌드한다.
- * 버퍼된 입력이 없으면 콤보를 종료한다.
- * (공중 콤보는 이 클래스를 상속해 SelectCombo만 오버라이드)
+ * 지상 콤보 어빌리티 — 무기별 DataTable 기반. 한 번의 활성화로 콤보 전체를 관리한다.
+ * 공격 중 같은 입력이 다시 오면 다음 타를 버퍼에 예약 → 블렌드아웃 시점에 바로 다음 타로 이어붙임.
+ * 공중 콤보는 이 클래스를 상속해 SelectCombo만 오버라이드.
  */
 UCLASS()
 class STUDYPROJECT_API UGA_Combo : public UCombatGameplayAbility
@@ -52,15 +49,15 @@ protected:
     UPROPERTY(EditDefaultsOnly, Category = "Combat|Damage")
     float HitDelay = 0.25f;
 
-    // 타격 시 대상에게 보낼 이벤트(공중 콤보는 Event.Launched로 저글). 비우면 이벤트 없음.
+    // 적중 시 보낼 이벤트(공중 콤보=Event.Launched). 비우면 없음.
     UPROPERTY(EditDefaultsOnly, Category = "Combat|Damage")
     FGameplayTag HitEventTag;
 
-    // 위 이벤트의 매그니튜드(공중 콤보=재상승 속도). 적의 AirLaunch가 이 값으로 다시 띄움.
+    // 이벤트 매그니튜드(공중 콤보=재상승 속도)
     UPROPERTY(EditDefaultsOnly, Category = "Combat|Damage")
     float HitEventMagnitude = 0.f;
 
-    // 마지막 타에서만 보낼 이벤트(공중 콤보 마무리=Event.Slammed로 바닥에 내려찍기). 비우면 일반 타와 동일.
+    // 마지막 타 전용 이벤트(공중 콤보=Event.Slammed). 비우면 일반 타와 동일.
     UPROPERTY(EditDefaultsOnly, Category = "Combat|Damage")
     FGameplayTag LastHitEventTag;
 
@@ -75,12 +72,11 @@ protected:
     UPROPERTY(EditDefaultsOnly, Category = "Combat|AirFloat")
     float SelfHangGravityScale = 0.35f;
 
-    // 타격마다 설정할 수직 속도(0=낙하만 멈춰 제자리 체공, 양수면 살짝 상승). 위로 솟지 않게 기본 0.
+    // 타격마다 줄 수직 속도(0=낙하만 멈춤, 양수=살짝 상승)
     UPROPERTY(EditDefaultsOnly, Category = "Combat|AirFloat")
     float SelfPopZ = 0.f;
 
-    // 콤보 캔슬 윈도우가 열리는 시점(몽타주 길이 대비 비율). 이 시점 이후 버퍼된 입력이 있으면
-    // 회복 동작을 캔슬하고 즉시 다음 타로 넘어간다. 작을수록 빠릿(연결 부드러움), 클수록 또박또박.
+    // 캔슬 윈도우 오픈 시점(몽타주 길이 비율). 작을수록 빠릿, 클수록 또박또박.
     UPROPERTY(EditDefaultsOnly, Category = "Combat", meta = (ClampMin = "0.1", ClampMax = "0.95"))
     float ComboWindowFraction = 0.5f;
 
@@ -103,8 +99,7 @@ protected:
     UFUNCTION()
     void OnSelfLanded(const FHitResult& Hit);
 
-    // 스텝인 세부 파라미터(MaxRange/StopDistance/Duration/MaxStep)는 DT_ComboData.StepIn으로 이동.
-    // 전진키로 인정할 전후 입력 임계값(Move 입력 Y)만 어빌리티에 유지(입력 감도 — 무기 무관).
+    // 스텝인 세부값은 DT_ComboData.StepIn으로. 여기엔 전진키 입력 임계값만(무기 무관).
     UPROPERTY(EditDefaultsOnly, Category = "Combat|StepIn")
     float StepInForwardThreshold = 0.3f;
 

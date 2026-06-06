@@ -69,7 +69,7 @@ public:
     FGameplayAttributeData MoveSpeed;
     ATTRIBUTE_ACCESSORS(UCombatAttributeSet, MoveSpeed)
 
-    // meta attribute: GE_Damage가 이 값에 데미지를 싣고, PostGameplayEffectExecute에서 HP로 환산 후 0으로 리셋
+    // meta attribute: GE_Damage가 싣고 PostGameplayEffectExecute에서 HP로 환산 후 0
     UPROPERTY(BlueprintReadOnly, Category = "Meta")
     FGameplayAttributeData Damage;
     ATTRIBUTE_ACCESSORS(UCombatAttributeSet, Damage)

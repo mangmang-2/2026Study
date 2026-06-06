@@ -41,10 +41,10 @@ TSharedRef<SWidget> UEnemySpawnerWidget::RebuildWidget()
 
         if (UCanvasPanelSlot* CS = Canvas->AddChildToCanvas(Box))
         {
-            // 우상단 고정
-            CS->SetAnchors(FAnchors(1.f, 0.f, 1.f, 0.f));
-            CS->SetAlignment(FVector2D(1.f, 0.f));
-            CS->SetPosition(FVector2D(-20.f, 20.f));
+            // 우하단 고정(X 닫기 버튼 안 가리게)
+            CS->SetAnchors(FAnchors(1.f, 1.f, 1.f, 1.f));
+            CS->SetAlignment(FVector2D(1.f, 1.f));
+            CS->SetPosition(FVector2D(-20.f, -20.f));
             CS->SetAutoSize(true);
         }
     }

@@ -40,10 +40,9 @@ void UInventoryGridWidget::RefreshGrid(const TArray<FInventorySlot>& Slots, cons
         UItemSlotWidget* SlotW = SlotWidgets[i];
         if (!SlotW) continue;
 
-        // 이 그리드 칸이 가리키는 실제 인벤 슬롯 인덱스.
-        // 매핑 모드: 범위 안이면 실제 인덱스, 밖이면 실제 슬롯 없음(-1). 비매핑(All): 그리드 위치=인벤 인덱스.
+        // 그리드 칸 → 실제 인벤 슬롯 인덱스(매핑 밖이면 -1, 비매핑이면 위치=인덱스)
         const int32 RealIndex = bMapped ? (SourceIndices.IsValidIndex(i) ? SourceIndices[i] : -1) : i;
-        SlotW->SlotIndex = RealIndex;   // 선택/툴팁/장착/드롭이 올바른 슬롯을 가리키게
+        SlotW->SlotIndex = RealIndex;
 
         if (Slots.IsValidIndex(i) && !Slots[i].IsEmpty())
         {

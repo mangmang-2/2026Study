@@ -59,6 +59,9 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Inventory")
     bool AddItem(int32 ItemID, int32 Quantity);
 
+    // 빈 슬롯에 1개 추가하며 강화 레벨 지정(장비 해제 등, 서버 권위)
+    bool AddItemWithEnhance(int32 ItemID, int32 EnhanceLevel);
+
     UFUNCTION(BlueprintCallable, Category = "Inventory")
     bool RemoveItem(int32 SlotIndex, int32 Quantity);
 

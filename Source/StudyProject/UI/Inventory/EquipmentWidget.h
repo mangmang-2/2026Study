@@ -8,6 +8,7 @@
 class UEquipmentComponent;
 class UItemSlotWidget;
 class UTextBlock;
+class UButton;
 
 UCLASS(Abstract)
 class STUDYPROJECT_API UEquipmentWidget : public UUserWidget
@@ -49,6 +50,20 @@ protected:
     UPROPERTY(meta = (BindWidget)) TObjectPtr<UTextBlock> DEFText = nullptr;
     UPROPERTY(meta = (BindWidget)) TObjectPtr<UTextBlock> HPText  = nullptr;
 
+    // 장비 세트 버튼(클릭=적용/빈칸이면 저장, Shift+클릭=덮어쓰기). WBP에 없으면 무시.
+    UPROPERTY(meta = (BindWidgetOptional)) TObjectPtr<UButton> LoadoutBtn1 = nullptr;
+    UPROPERTY(meta = (BindWidgetOptional)) TObjectPtr<UButton> LoadoutBtn2 = nullptr;
+    UPROPERTY(meta = (BindWidgetOptional)) TObjectPtr<UButton> LoadoutBtn3 = nullptr;
+    UPROPERTY(meta = (BindWidgetOptional)) TObjectPtr<UTextBlock> LoadoutText1 = nullptr;
+    UPROPERTY(meta = (BindWidgetOptional)) TObjectPtr<UTextBlock> LoadoutText2 = nullptr;
+    UPROPERTY(meta = (BindWidgetOptional)) TObjectPtr<UTextBlock> LoadoutText3 = nullptr;
+
+    // 활성(현재 선택) 세트 버튼 강조 색 / 비활성 색
+    UPROPERTY(EditAnywhere, Category = "Style")
+    FLinearColor ActiveLoadoutColor = FLinearColor(1.0f, 0.78f, 0.25f, 1.0f);
+    UPROPERTY(EditAnywhere, Category = "Style")
+    FLinearColor NormalLoadoutColor = FLinearColor(0.22f, 0.22f, 0.25f, 1.0f);
+
 protected:
     virtual void NativeConstruct() override;
     virtual void NativeDestruct() override;
@@ -64,4 +79,14 @@ private:
 
     UFUNCTION()
     void HandleSlotRightClicked(int32 SlotIndex);
+
+    UFUNCTION()
+    void OnLoadout1Clicked();
+    UFUNCTION()
+    void OnLoadout2Clicked();
+    UFUNCTION()
+    void OnLoadout3Clicked();
+
+    void HandleLoadoutClicked(int32 Index);
+    void RefreshLoadoutButtons();
 };

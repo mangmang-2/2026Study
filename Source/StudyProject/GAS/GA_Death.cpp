@@ -3,6 +3,7 @@
 #include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "GameFramework/PlayerController.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 
@@ -33,6 +34,11 @@ void UGA_Death::ActivateAbility(
     ACharacter* Char = Cast<ACharacter>(GetAvatarActorFromActorInfo());
     if (Char)
     {
+        // 플레이어면 입력 차단(적은 AIController라 no-op)
+        if (APlayerController* PC = Cast<APlayerController>(Char->GetController()))
+        {
+            Char->DisableInput(PC);
+        }
         if (UCharacterMovementComponent* Move = Char->GetCharacterMovement())
         {
             Move->StopMovementImmediately();

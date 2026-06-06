@@ -33,7 +33,7 @@ struct STUDYPROJECT_API FHitFeel
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "HitFeel")
     float KnockbackSpeed = 0.f;
 
-    // 적중 지점 히트 이펙트(여기에 꽂으면 됨, 비워두면 미사용)
+    // 적중 지점 히트 이펙트(비우면 미사용)
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "HitFeel")
     TObjectPtr<UNiagaraSystem> HitEffect = nullptr;
 };
@@ -100,8 +100,7 @@ struct STUDYPROJECT_API FWeaponComboData : public FTableRowBase
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combo")
     float DamagePerHit = 25.f;
 
-    // 공격 몽타주 재생 속도(애니 속도). 1.0=기본, 2.0=2배 빠름, 0.5=절반. 콤보/런처/처형 공통.
-    // 히트 판정·콤보 윈도우 타이밍도 이 값에 맞춰 자동 보정됨.
+    // 공격 몽타주 재생 속도(1.0=기본). 히트·윈도우 타이밍도 자동 보정.
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combo", meta = (ClampMin = "0.1", ClampMax = "5.0"))
     float AttackPlayRate = 1.0f;
 

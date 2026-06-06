@@ -19,7 +19,7 @@
 #include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
 #include "DrawDebugHelpers.h"
 
-// 공격범위 시각화 옵션 — 콘솔에서 `study.DrawMeleeRange 1`(켜기) / `0`(끄기)
+// 공격범위 디버그 시각화 (study.DrawMeleeRange 1)
 static TAutoConsoleVariable<int32> CVarDrawMeleeRange(
     TEXT("study.DrawMeleeRange"),
     0,
@@ -30,7 +30,7 @@ UCombatGameplayAbility::UCombatGameplayAbility()
 {
     // 콤보/회피 등은 인스턴스별 상태가 필요
     InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
-    // 기본은 로컬 예측 활성화(서버 권위 + 클라 예측)
+    // 서버 권위 + 클라 예측
     NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::LocalPredicted;
 }
 
@@ -76,7 +76,7 @@ bool UCombatGameplayAbility::ApplyMeleeDamage(float DamageAmount, FGameplayTag E
         FCollisionShape::MakeSphere(MeleeRadius), Params);
 
 #if ENABLE_DRAW_DEBUG
-    // 공격범위 시각화(옵션) — 스피어 스윕을 캡슐로 그림. study.DrawMeleeRange 1 로 켬.
+    // 스피어 스윕을 캡슐로 시각화
     if (CVarDrawMeleeRange.GetValueOnGameThread() != 0)
     {
         const FVector Seg = End - Start;
@@ -93,7 +93,7 @@ bool UCombatGameplayAbility::ApplyMeleeDamage(float DamageAmount, FGameplayTag E
     TSet<AActor*> Done;
     TArray<TWeakObjectPtr<AActor>> StoppedActors;   // 히트스톱 복원 대상
 
-    // 아군 오사 방지용 공격자 진영(적=AEnemyCharacter/보스, 그 외=플레이어 진영)
+    // 공격자 진영(적=AEnemyCharacter, 그 외=플레이어)
     const bool bAvatarIsEnemy = Avatar->IsA(AEnemyCharacter::StaticClass());
 
     for (const FHitResult& Hit : Hits)
@@ -105,13 +105,13 @@ bool UCombatGameplayAbility::ApplyMeleeDamage(float DamageAmount, FGameplayTag E
         }
         Done.Add(Target);
 
-        // 같은 진영(적↔적 / 플레이어↔플레이어)은 데미지 안 줌 — 아군 오사 방지
+        // 같은 진영은 데미지 안 줌(아군 오사 방지)
         if (Target->IsA(AEnemyCharacter::StaticClass()) == bAvatarIsEnemy)
         {
             continue;
         }
 
-        // 한 스윙(여러 프레임) 동안 같은 대상 중복 타격 방지
+        // 한 스윙 내 같은 대상 중복 타격 방지
         if (AlreadyHit != nullptr && AlreadyHit->Contains(Target))
         {
             continue;
@@ -123,7 +123,7 @@ bool UCombatGameplayAbility::ApplyMeleeDamage(float DamageAmount, FGameplayTag E
             continue;
         }
 
-        // 이미 죽었거나 쓰러진(넉다운) 대상은 더 이상 때리지 않음
+        // 죽었거나 넉다운된 대상은 제외
         if (TargetASC->HasMatchingGameplayTag(StudyTags::State_Dead)
             || TargetASC->HasMatchingGameplayTag(StudyTags::State_Knockdown))
         {
@@ -131,8 +131,7 @@ bool UCombatGameplayAbility::ApplyMeleeDamage(float DamageAmount, FGameplayTag E
         }
 
         // ── 저스트카운터(패리) 가로채기 ────────────────────────────────
-        // 타깃이 패리 윈도우 중이고 공격자를 바라보고 있으면: 데미지/넉백/히트스톱 전부 무효 +
-        // 공격자에게 Event.Staggered(경직) + 패리한 쪽에 Event.Parried(리포스트 발동) 전송.
+        // 패리 윈도우 중 + 공격자 정면이면: 데미지 무효 + 공격자 경직 / 패리 측 리포스트
         if (TargetASC->HasMatchingGameplayTag(StudyTags::Status_Parrying))
         {
             FVector ToAttacker = Avatar->GetActorLocation() - Target->GetActorLocation();
@@ -148,7 +147,7 @@ bool UCombatGameplayAbility::ApplyMeleeDamage(float DamageAmount, FGameplayTag E
                     StaggerP.Target = Avatar;
                     SourceASC->HandleGameplayEvent(StudyTags::Event_Staggered, &StaggerP);
                 }
-                // 패리한 쪽(플레이어) 성공 — 리포스트 GA가 수신
+                // 패리 성공 — 리포스트 GA가 수신
                 {
                     FGameplayEventData ParryP;
                     ParryP.EventTag = StudyTags::Event_Parried;
@@ -156,17 +155,16 @@ bool UCombatGameplayAbility::ApplyMeleeDamage(float DamageAmount, FGameplayTag E
                     ParryP.Target = Target;
                     TargetASC->HandleGameplayEvent(StudyTags::Event_Parried, &ParryP);
                 }
-                // 이 스윙에서 같은 대상 재판정 방지(데미지는 안 줌)
+                // 이 스윙에서 재판정 방지
                 if (AlreadyHit != nullptr)
                 {
                     AlreadyHit->Add(Target);
                 }
-                continue;   // 데미지/넉백/히트스톱/피드백 모두 건너뜀
+                continue;
             }
         }
 
-        // 타격 피드백(히트VFX + 피격자 플래시 + 데미지넘버) — 멀티에서 다른 유저도 보이게
-        // 공격자 액터의 NetMulticast로 재생(서버 권위에서만 트리거 → 모든 클라). VFX는 null이어도 OK.
+        // 타격 피드백(VFX+플래시+데미지넘버) — 서버 멀티캐스트로 전 클라 표시
         const FVector FxLoc = Hit.ImpactPoint.IsZero() ? Target->GetActorLocation() : FVector(Hit.ImpactPoint);
         ACharacterBase* AvatarChar = Cast<ACharacterBase>(Avatar);
         if (AvatarChar != nullptr && Avatar->HasAuthority())
@@ -178,7 +176,7 @@ bool UCombatGameplayAbility::ApplyMeleeDamage(float DamageAmount, FGameplayTag E
             UNiagaraFunctionLibrary::SpawnSystemAtLocation(World, Feel.HitEffect, FxLoc, FRotator(Hit.ImpactNormal.Rotation()));
         }
 
-        // 런치 등 이벤트 먼저 전송(피격 반응보다 우선되도록)
+        // 런치 등 이벤트 먼저(피격 반응보다 우선)
         if (EventOnHit.IsValid())
         {
             FGameplayEventData Payload;
@@ -199,7 +197,7 @@ bool UCombatGameplayAbility::ApplyMeleeDamage(float DamageAmount, FGameplayTag E
             SourceASC->ApplyGameplayEffectSpecToTarget(*Spec.Data.Get(), TargetASC);
         }
 
-        // 적중 시 상태이상 부여(화상/출혈/감전/둔화 등) — 설정된 GE만, 비어 있으면 없음
+        // 적중 시 상태이상 부여(설정된 GE만)
         for (const TSubclassOf<UGameplayEffect>& StatusGE : OnHitStatusEffects)
         {
             if (StatusGE == nullptr)
@@ -215,7 +213,7 @@ bool UCombatGameplayAbility::ApplyMeleeDamage(float DamageAmount, FGameplayTag E
             }
         }
 
-        // 넉백 — 피격자를 공격자 반대 방향으로 밀기(런치 이벤트가 없을 때만)
+        // 넉백(런치 이벤트 없을 때만)
         if (Feel.KnockbackSpeed > 0.f && EventOnHit.IsValid() == false)
         {
             if (ACharacter* TargetChar = Cast<ACharacter>(Target))
@@ -287,7 +285,7 @@ bool UCombatGameplayAbility::ApplyMeleeDamage(float DamageAmount, FGameplayTag E
 
 void UCombatGameplayAbility::StartMeleeHitWindowListeners()
 {
-    // HitStart/HitEnd 이벤트를 어빌리티가 끝날 때까지 계속 수신(여러 타 콤보 전부 커버)
+    // HitStart/HitEnd를 어빌 종료까지 계속 수신(콤보 전체 커버)
     if (UAbilityTask_WaitGameplayEvent* StartTask =
         UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(this, StudyTags::Event_Melee_HitStart, nullptr, /*OnlyTriggerOnce=*/false))
     {
@@ -304,13 +302,13 @@ void UCombatGameplayAbility::StartMeleeHitWindowListeners()
 
 void UCombatGameplayAbility::OnMeleeHitStartEvent(FGameplayEventData /*Payload*/)
 {
-    // 새 스윙 시작 — 중복방지 셋 초기화 후 윈도우 동안 매 프레임 트레이스
+    // 새 스윙 — 중복방지 셋 초기화 후 윈도우 동안 매 프레임 트레이스
     MeleeSwingHitActors.Reset();
     if (UWorld* World = GetWorld())
     {
         World->GetTimerManager().SetTimer(
             MeleeWindowTimer, this, &UCombatGameplayAbility::MeleeWindowTick, 0.016f, true);
-        MeleeWindowTick();   // 같은 프레임에 즉시 1회 판정(시작 지연 없이)
+        MeleeWindowTick();   // 시작 지연 없이 즉시 1회
     }
 }
 

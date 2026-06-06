@@ -51,6 +51,10 @@ public:
     UFUNCTION(Exec)
     void DebugTradeNearest();
 
+    // 콘솔 커맨드: 골드 지급 (DebugAddGold <Amount>, 기본 10000)
+    UFUNCTION(Exec)
+    void DebugAddGold(int32 Amount = 10000);
+
     // 콘솔 커맨드: 장착 무기 강화 +1 (오라 VFX 즉시 테스트용)
     UFUNCTION(Exec)
     void EnhanceWeapon();
@@ -151,6 +155,17 @@ protected:
     UPROPERTY(EditDefaultsOnly, Category = "Input|Phase2")
     TObjectPtr<UInputAction> ParryAction;   // 저스트카운터(패리). IMC 매핑은 사용자가 연결
 
+    // ── 장비 세트(로드아웃) ──────────────────────────────────────────
+    // 숫자키 1~3 = 세트 적용. SaveModifier를 누른 채 누르면 현재 장비를 그 세트로 저장.
+    UPROPERTY(EditDefaultsOnly, Category = "Input|Loadout")
+    TObjectPtr<UInputAction> LoadoutSlot1Action;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Input|Loadout")
+    TObjectPtr<UInputAction> LoadoutSlot2Action;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Input|Loadout")
+    TObjectPtr<UInputAction> LoadoutSlot3Action;
+
     // ── UI 위젯 클래스 ────────────────────────────────────────────────
     UPROPERTY(EditDefaultsOnly, Category = "UI")
     TSubclassOf<UHUDWidget> HUDWidgetClass;
@@ -227,6 +242,12 @@ private:
     void HandleUsePotion();
     void HandleEnhance();
 
+    // 장비 세트(로드아웃) — 적용. 저장은 인벤 닫을 때 자동.
+    void HandleLoadoutSlot1();
+    void HandleLoadoutSlot2();
+    void HandleLoadoutSlot3();
+    void ApplyLoadoutSlot(int32 Index);
+
     // GAS 어빌리티 입력 — 입력 태그(Input.*)로 매칭되는 GA 활성화
     void HandleAttack();   // 지상/공중 자동 분기
     void HandleLauncher(); // 공중 띄우기
@@ -235,6 +256,11 @@ private:
     void HandleParry();    // 저스트카운터(패리)
     void HandleLockOn();   // 록온 토글
     void HandleLockOnSwitch(const FInputActionValue& Value); // 타겟 좌우 전환
+
+    // ── 전체화면 UI 관리 ──────────────────────────────────────────────
+    // 전체화면 패널(인벤/강화/상점/거래/일시정지)은 동시에 하나만. 새로 열기 전에 나머지 닫음.
+    void CloseExclusiveScreens();
+    bool IsAnyScreenOpen() const;
 
     // UI 열기/닫기
     void OpenInventory();
@@ -288,6 +314,9 @@ private:
     UFUNCTION(Server, Reliable)
     void Server_DebugDropItem(int32 ItemID, int32 Quantity);
 
+    UFUNCTION(Server, Reliable)
+    void Server_DebugAddGold(int32 Amount);
+
     UFUNCTION(Server, Reliable) 
     void Server_SpawnTestEnemy();
     UFUNCTION(Server, Reliable) 
@@ -331,4 +360,9 @@ private:
     TObjectPtr<UUserWidget> InteractionPromptW = nullptr;
 
     void UpdateInteractionPrompt();
+
+    UPROPERTY()
+    FTransform InitialMeshTransform;
+    UPROPERTY()
+    FName InitialMeshProfile;
 };

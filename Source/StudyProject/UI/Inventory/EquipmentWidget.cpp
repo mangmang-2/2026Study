@@ -6,6 +6,7 @@
 #include "Engine/GameInstance.h"
 #include "GameFramework/Character.h"
 #include "Components/TextBlock.h"
+#include "Components/Button.h"
 
 void UEquipmentWidget::NativeConstruct()
 {
@@ -19,6 +20,19 @@ void UEquipmentWidget::NativeConstruct()
     CachedArmsSlot     = Cast<UItemSlotWidget>(GetWidgetFromName(TEXT("ArmsSlot")));
     CachedWeaponSlot   = Cast<UItemSlotWidget>(GetWidgetFromName(TEXT("WeaponSlot")));
     CachedShieldSlot   = Cast<UItemSlotWidget>(GetWidgetFromName(TEXT("ShieldSlot")));
+
+    if (LoadoutBtn1 != nullptr)
+    {
+        LoadoutBtn1->OnClicked.AddUniqueDynamic(this, &UEquipmentWidget::OnLoadout1Clicked);
+    }
+    if (LoadoutBtn2 != nullptr)
+    {
+        LoadoutBtn2->OnClicked.AddUniqueDynamic(this, &UEquipmentWidget::OnLoadout2Clicked);
+    }
+    if (LoadoutBtn3 != nullptr)
+    {
+        LoadoutBtn3->OnClicked.AddUniqueDynamic(this, &UEquipmentWidget::OnLoadout3Clicked);
+    }
 }
 
 void UEquipmentWidget::NativeDestruct()
@@ -73,7 +87,7 @@ void UEquipmentWidget::RefreshEquipment()
             const FItemData* Data = ItemSub->GetItemData(ItemID);
             if (Data != nullptr)
             {
-                W->SetItemData(*Data, 1, 0);
+                W->SetItemData(*Data, 1, BoundEquipment->GetEquippedEnhanceLevel(EquipSlot));
             }
             else
             {
@@ -97,6 +111,7 @@ void UEquipmentWidget::RefreshEquipment()
     SetupSlot(CachedShieldSlot,   EEquipSlot::Shield,   ESlotContext::Equipment);
 
     RefreshStats();
+    RefreshLoadoutButtons();
 }
 
 void UEquipmentWidget::RefreshStats()
@@ -143,4 +158,51 @@ void UEquipmentWidget::HandleSlotRightClicked(int32 SlotIndex)
         return;
     }
     BoundEquipment->Unequip(static_cast<EEquipSlot>(SlotIndex));
+}
+
+void UEquipmentWidget::OnLoadout1Clicked()
+{
+    HandleLoadoutClicked(0);
+}
+
+void UEquipmentWidget::OnLoadout2Clicked()
+{
+    HandleLoadoutClicked(1);
+}
+
+void UEquipmentWidget::OnLoadout3Clicked()
+{
+    HandleLoadoutClicked(2);
+}
+
+void UEquipmentWidget::HandleLoadoutClicked(int32 Index)
+{
+    if (BoundEquipment.IsValid() == false)
+    {
+        return;
+    }
+    // 클릭 = 그 세트 로드(빈 세트면 비움). 저장은 장착/해제 시 자동.
+    BoundEquipment->ApplyLoadout(Index);
+    RefreshLoadoutButtons();
+}
+
+void UEquipmentWidget::RefreshLoadoutButtons()
+{
+    const int32 Active = BoundEquipment.IsValid() ? BoundEquipment->GetActiveLoadout() : -1;
+    UButton* Btns[]    = { LoadoutBtn1, LoadoutBtn2, LoadoutBtn3 };
+    UTextBlock* Texts[] = { LoadoutText1, LoadoutText2, LoadoutText3 };
+    for (int32 i = 0; i < 3; ++i)
+    {
+        const bool bActive = (i == Active);
+        if (Btns[i] != nullptr)
+        {
+            // 현재 선택 세트만 강조
+            Btns[i]->SetBackgroundColor(bActive ? ActiveLoadoutColor : NormalLoadoutColor);
+        }
+        if (Texts[i] != nullptr)
+        {
+            Texts[i]->SetText(FText::AsNumber(i + 1));
+            Texts[i]->SetColorAndOpacity(bActive ? FSlateColor(FLinearColor::Black) : FSlateColor(FLinearColor::White));
+        }
+    }
 }

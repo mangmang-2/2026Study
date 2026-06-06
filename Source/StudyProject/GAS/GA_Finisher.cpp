@@ -121,10 +121,9 @@ void UGA_Finisher::StartCinematic(AActor* Target)
         return;
     }
 
-    // 슬로모션 제거: 멀티플레이에서 글로벌 타임딜레이션은 모든 플레이어를 늦춰 다른 클라에
-    // 이상하게 보임. 카메라 연출(로컬 PC 시점 전환)만 유지한다.
+    // 글로벌 타임딜레이션은 멀티에서 모두를 늦추므로 미사용 — 카메라 연출만 유지
 
-    // 연출 카메라 — 두 캐릭터 측면에서 잡기(전부 BP 파라미터로 조절)
+    // 연출 카메라 — 두 캐릭터 측면에서 잡기(BP 파라미터로 조절)
     const FVector PlayerLoc = Avatar->GetActorLocation();
     const FVector TargetLoc = Target->GetActorLocation();
     const FVector MidGround = (PlayerLoc + TargetLoc) * 0.5f;

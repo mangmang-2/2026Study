@@ -45,7 +45,7 @@ AEnemyCharacter::AEnemyCharacter()
     GetCapsuleComponent()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECR_Ignore);
     GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECR_Ignore);
 
-    // 손 무기 — 오른손(hand_r) 본에 부착 + 플레이어 HandSocket_R과 동일한 상대 트랜스폼
+    // 오른손(hand_r) 본 — 플레이어 소켓과 동일 트랜스폼
     WeaponMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("EnemyWeaponMesh"));
     WeaponMesh->SetupAttachment(GetMesh(), TEXT("hand_r"));
     WeaponMesh->SetRelativeLocation(FVector(-11.667f, 6.511f, 3.214f));
@@ -61,7 +61,7 @@ AEnemyCharacter::AEnemyCharacter()
         WeaponMesh->SetSkeletalMeshAsset(WeaponMeshAsset);
     }
 
-    // 왼손 방패 — hand_l 본 + 플레이어 HandSocket_L과 동일한 상대 트랜스폼
+    // 왼손(hand_l) 본 방패
     ShieldMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("EnemyShieldMesh"));
     ShieldMesh->SetupAttachment(GetMesh(), TEXT("hand_l"));
     ShieldMesh->SetRelativeLocation(FVector(6.583f, 0.507f, 1.134f));
@@ -99,8 +99,7 @@ void AEnemyCharacter::BeginPlay()
     if (GetCharacterMovement() != nullptr)
     {
         BaseWalkSpeed = GetCharacterMovement()->MaxWalkSpeed;
-        // navmesh 길찾기(MoveToActor) 이동을 가속도 기반으로 — 안 그러면 velocity만 바뀌고 Acceleration=0이라
-        // ABP의 ShouldMove(가속도 기반)가 false→idle로 미끄러짐. 켜면 걷기/달리기 로코모션이 정상 재생.
+        // MoveToActor를 가속도 기반으로 — 아니면 Acceleration=0이라 ABP가 idle로 미끄러짐
         if (FNavMovementProperties* NavProps = GetCharacterMovement()->GetNavMovementProperties())
         {
             NavProps->bUseAccelerationForPaths = true;
@@ -161,7 +160,7 @@ void AEnemyCharacter::Multicast_StartGrowingDecal_Implementation(
     DecalGrowTime = FMath::Max(0.05f, GrowTime);
     DecalGrowElapsed = 0.f;
 
-    // 길이 ~0(보스 발밑)에서 시작. Pitch -90으로 바닥 투영, 로컬 Z축이 돌진 방향에 정렬.
+    // 보스 발밑에서 시작, Pitch -90 바닥 투영(로컬 Z = 돌진 방향)
     const FRotator DecalRot(-90.f, DecalDir.Rotation().Yaw, 0.f);
     const FVector StartSize(DecalDepth, DecalHalfWidth, 1.f);
     WarningDecalComp = UGameplayStatics::SpawnDecalAtLocation(this, DecalMaterial, StartSize, DecalAnchor, DecalRot, 0.f);
@@ -182,7 +181,7 @@ void AEnemyCharacter::UpdateGrowingDecal()
     const float Alpha = FMath::Clamp(DecalGrowElapsed / DecalGrowTime, 0.f, 1.f);
     const float CurLen = DecalFullLength * Alpha;
 
-    // 근단(near)은 보스에 고정, 원단(far)이 돌진 방향으로 성장 → 중심 = Anchor + Dir*CurLen/2
+    // near는 보스 고정, far가 성장 → 중심 = Anchor + Dir*CurLen/2
     const FVector Mid = DecalAnchor + DecalDir * (CurLen * 0.5f);
     WarningDecalComp->SetWorldLocation(FVector(Mid.X, Mid.Y, DecalAnchor.Z));
     WarningDecalComp->DecalSize = FVector(DecalDepth, DecalHalfWidth, FMath::Max(1.f, CurLen * 0.5f));

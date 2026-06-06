@@ -19,7 +19,7 @@ void ABossEnemy::BeginPlay()
 {
     Super::BeginPlay();
 
-    // HP 변화 구독(페이즈 전환). 서버/클라 모두 호출되나 버프는 서버에서만 적용.
+    // HP 변화 구독(페이즈 전환). 버프는 서버만 적용.
     if (UAbilitySystemComponent* ASC = GetAbilitySystemComponent())
     {
         ASC->GetGameplayAttributeValueChangeDelegate(UCombatAttributeSet::GetHPAttribute())
@@ -70,7 +70,7 @@ void ABossEnemy::HandleHPChanged(const FOnAttributeChangeData& Data)
     while (CurrentPhase < PhaseHealthThresholds.Num() && Frac <= PhaseHealthThresholds[CurrentPhase])
     {
         ++CurrentPhase;
-        // 기준속도 증가 — 둔화/스턴 상태이상이 합성 반영되도록 SetBaseWalkSpeed 경유
+        // SetBaseWalkSpeed 경유 — 둔화/스턴 합성 반영
         SetBaseWalkSpeed(BaseWalkSpeed + PerPhaseSpeedBonus);
         OnPhaseChanged(CurrentPhase);
     }

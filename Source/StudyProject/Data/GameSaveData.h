@@ -46,6 +46,16 @@ struct FEquipmentSaveData
     UPROPERTY() TMap<EEquipSlot, int32> EquippedItems;
 };
 
+// 장비 세트(로드아웃) 한 칸 — 슬롯별 ItemID + 강화 레벨
+USTRUCT(BlueprintType)
+struct FLoadoutSaveEntry
+{
+    GENERATED_BODY()
+
+    UPROPERTY() TMap<EEquipSlot, int32> Items;
+    UPROPERTY() TMap<EEquipSlot, int32> Enhances;
+};
+
 USTRUCT(BlueprintType)
 struct FSettingsSaveData
 {
@@ -67,5 +77,7 @@ public:
     UPROPERTY() FPlayerSaveData PlayerData;
     UPROPERTY() FInventorySaveData InventoryData;
     UPROPERTY() FEquipmentSaveData EquipmentData;
+    UPROPERTY() TArray<FLoadoutSaveEntry> Loadouts;
+    UPROPERTY() int32 ActiveLoadout = -1;
     UPROPERTY() FSettingsSaveData SettingsData;
 };

@@ -18,8 +18,27 @@ void UEnhanceScreenWidget::NativeConstruct()
     UInventoryComponent* InvComp = Char->FindComponentByClass<UInventoryComponent>();
     UEnhanceComponent*   EnhComp = Char->FindComponentByClass<UEnhanceComponent>();
 
-    if (CachedInvPanel     && InvComp)  CachedInvPanel->BindToInventory(InvComp);
-    if (CachedEnhancePanel && EnhComp)  CachedEnhancePanel->BindToEnhance(EnhComp);
+    if (CachedInvPanel && InvComp)
+    {
+        CachedInvPanel->BindToInventory(InvComp);
+        // 강화창 인벤은 우클릭=장착 금지 → 우클릭으로 강화 대상 지정
+        CachedInvPanel->SetRightClickEquips(false);
+        CachedInvPanel->OnItemSelected.AddUniqueDynamic(this, &UEnhanceScreenWidget::HandleInvItemSelected);
+    }
+    if (CachedEnhancePanel && EnhComp)
+    {
+        CachedEnhancePanel->BindToEnhance(EnhComp);
+        // 열 때마다 이전 강화 대상 초기화(닫았다 켜도 안 남게)
+        CachedEnhancePanel->ClearSlots();
+    }
+}
+
+void UEnhanceScreenWidget::HandleInvItemSelected(int32 SlotIndex)
+{
+    if (CachedEnhancePanel != nullptr)
+    {
+        CachedEnhancePanel->OnTargetSlotDrop(SlotIndex);
+    }
 }
 
 void UEnhanceScreenWidget::NativeDestruct()

@@ -26,7 +26,7 @@ public:
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Combat")
     bool bActivateOnGranted = false;
 
-    // true면 이 어빌리티가 활성 중인 동안 캐릭터 이동 입력을 막는다(공격/회피/처형 등 모션 동작)
+    // 활성 중 캐릭터 이동 입력 차단(공격/회피 등 모션)
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Combat")
     bool bLocksMovement = false;
 
@@ -43,34 +43,29 @@ protected:
     UPROPERTY(EditDefaultsOnly, Category = "Combat|Damage")
     float MeleeRadius = 70.f;
 
-    // 적중 시 대상에 부여할 상태이상 GE(화상/출혈/감전/둔화 등). 비어 있으면 없음. BP/무기별로 설정.
+    // 적중 시 부여할 상태이상 GE(비어 있으면 없음)
     UPROPERTY(EditDefaultsOnly, Category = "Combat|Status")
     TArray<TSubclassOf<UGameplayEffect>> OnHitStatusEffects;
 
-    // 패리 성공 판정: 타깃 정면 벡터와 '타깃→공격자' 방향의 내적이 이 값 이상이면 정면 패리로 인정.
-    // 0.1 ≈ 약 84도 전방까지 허용(너무 빡빡하지 않게). ApplyMeleeDamage에서 사용.
+    // 정면 패리 판정 내적 임계값(0.1 ≈ 약 84도)
     UPROPERTY(EditDefaultsOnly, Category = "Combat|Damage")
     float ParryFacingDot = 0.1f;
 
-    // 전방 스피어 트레이스 → 맞은 ASC들에 DamageGEClass(SetByCaller Data.Damage=DamageAmount) 적용.
-    // EventOnHit이 유효하면 각 타깃 ASC로 게임플레이 이벤트도 전송.
-    // Feel(타격감): 적중 지점 이펙트 + 히트스톱(공격자+피격자) + 카메라 셰이크 + 넉백.
-    // AlreadyHit: 지정 시 그 안에 있는 액터는 건너뛰고, 새로 맞은 액터를 추가(한 스윙 다중프레임 중복방지).
-    // 반환: 이번 호출에서 새로 맞은 대상이 하나라도 있으면 true.
+    // 전방 스피어 트레이스로 데미지 GE 적용 + 타격감(이펙트/히트스톱/셰이크/넉백).
+    // EventOnHit 유효 시 이벤트도 전송. AlreadyHit로 한 스윙 중복 방지. 새 명중 있으면 true.
     bool ApplyMeleeDamage(float DamageAmount, FGameplayTag EventOnHit, float EventMagnitude, const FHitFeel& Feel,
         TSet<TWeakObjectPtr<AActor>>* AlreadyHit = nullptr);
 
     // ── 노티파이 기반 타격 윈도우 ───────────────────────────────────
-    // 서브클래스가 ActivateAbility에서 Melee* 파라미터를 채운 뒤 호출.
-    // 몽타주의 "Melee Hit" 노티파이가 Event.Melee.HitStart/HitEnd를 보내면 윈도우를 열고/닫아
-    // 윈도우 동안 매 프레임 트레이스한다(스윙마다 타이밍이 달라도 정확히 판정).
+    // 서브클래스가 Melee* 파라미터를 채운 뒤 호출. "Melee Hit" 노티파이의 HitStart/HitEnd로
+    // 윈도우를 열고/닫아 그동안 매 프레임 트레이스한다.
     void StartMeleeHitWindowListeners();
     void StopMeleeHitWindow();
 
-    // 윈도우 중 "새 대상이 맞은" 프레임에 호출(자기 체공/자기 런치 등 후처리 훅)
+    // 윈도우 중 새 대상이 맞은 프레임 훅(자기 체공 등)
     virtual void OnMeleeHitLanded() {}
 
-    // 이번 스윙에 적용할 파라미터(서브클래스가 채움)
+    // 이번 스윙 파라미터(서브클래스가 채움)
     float MeleeDamage = 0.f;
     FGameplayTag MeleeHitEventTag;
     float MeleeHitEventMagnitude = 0.f;

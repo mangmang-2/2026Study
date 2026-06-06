@@ -69,8 +69,7 @@ void UGA_Dodge::ActivateAbility(
         return;
     }
 
-    // 회피 이동 — 고정 거리를 ease-out 보간으로 이동(지상/공중 동일, 끝에서 딱 정지).
-    // 이동 시간을 회피 몽타주 길이에 맞춰 애니와 같이 끝나게(렉 느낌 방지).
+    // 고정 거리를 몽타주 길이에 맞춰 ease-out 이동(끝에서 딱 정지)
     DodgeStartLoc = Char->GetActorLocation();
     DodgeEndLoc   = DodgeStartLoc + InputDir * DodgeDistance;
     DodgeElapsed  = 0.f;
@@ -123,7 +122,7 @@ void UGA_Dodge::DodgeMoveTick()
 
     DodgeElapsed += 0.016f;
     const float Alpha = FMath::Clamp(DodgeElapsed / CurrentMoveDuration, 0.f, 1.f);
-    // 강한 ease-out(quartic): 시작에 확 치고 나가고 끝에서 빠르게 정지 → 미끄러짐(스케이트) 최소화
+    // quartic ease-out — 미끄러짐 최소화
     const float Smooth = 1.f - FMath::Pow(1.f - Alpha, 4.f);
 
     FVector NewLoc = FMath::Lerp(DodgeStartLoc, DodgeEndLoc, Smooth);

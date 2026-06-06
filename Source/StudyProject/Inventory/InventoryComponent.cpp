@@ -22,7 +22,7 @@ void UInventoryComponent::BeginPlay()
 {
     Super::BeginPlay();
 
-    // 생성자에서 SetNum(MaxSlots)는 C++ 기본값(30) 기준이므로, BP에서 바꾼 MaxSlots에 맞춰 재조정
+    // 생성자 SetNum은 C++ 기본값 기준 → BP에서 바꾼 MaxSlots에 맞춰 재조정
     if (GetOwner() != nullptr && GetOwner()->HasAuthority())
     {
         if (InventoryList.Slots.Num() != MaxSlots)
@@ -307,6 +307,26 @@ void UInventoryComponent::SetSlotEnhanceLevel(int32 SlotIndex, int32 NewLevel)
     Slot.EnhanceLevel = NewLevel;
     InventoryList.MarkItemDirty(Slot);
     OnInventoryChanged.Broadcast();
+}
+
+bool UInventoryComponent::AddItemWithEnhance(int32 ItemID, int32 EnhanceLevel)
+{
+    if (!GetOwner()->HasAuthority())
+    {
+        return false;
+    }
+    int32 EmptySlot = FindEmptySlot();
+    if (EmptySlot == -1)
+    {
+        return false;
+    }
+    FInventorySlot& Slot = InventoryList.Slots[EmptySlot];
+    Slot.ItemID = ItemID;
+    Slot.Quantity = 1;
+    Slot.EnhanceLevel = EnhanceLevel;
+    InventoryList.MarkItemDirty(Slot);
+    OnInventoryChanged.Broadcast();
+    return true;
 }
 
 // ── Server RPC 구현 ───────────────────────────────────────────────────

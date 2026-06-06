@@ -57,14 +57,13 @@ void UGA_Combo::ActivateAbility(
     CurrentHitFeel = ComboData.HitFeel;
     CurrentPlayRate = (ComboData.AttackPlayRate > 0.f) ? ComboData.AttackPlayRate : 1.0f;
 
-    // 노티파이 기반 타격 윈도우용 파라미터 + 리스너(몽타주의 Melee Hit 노티파이가 판정 시점을 결정)
+    // 타격 판정 시점은 몽타주의 Melee Hit 노티파이가 결정
     MeleeDamage = ComboData.DamagePerHit;
     MeleeHitFeel = ComboData.HitFeel;
     MeleeHitEventTag = HitEventTag;
     MeleeHitEventMagnitude = HitEventMagnitude;
     StartMeleeHitWindowListeners();
 
-    // 스텝인 파라미터는 무기 데이터에서 가져옴(DT_ComboData.StepIn)
     CurrentStepIn = ComboData.StepIn;
 
     // 새 콤보 시작 — 1타부터
@@ -75,7 +74,7 @@ void UGA_Combo::ActivateAbility(
 
 void UGA_Combo::NotifyComboInput()
 {
-    // 다음 타가 남아있을 때만 예약 (마지막 타에서는 무시)
+    // 다음 타가 있을 때만 예약
     if (ComboIndex + 1 >= CurrentMontages.Num())
     {
         return;
@@ -109,7 +108,7 @@ void UGA_Combo::PlayComboMontage()
     bWindowOpen = false;
     bChained = false;
 
-    // 이 타에서 적에게 보낼 이벤트 선택: 마지막 타면 LastHit(슬램), 아니면 일반(저글/없음)
+    // 마지막 타는 LastHit(슬램), 아니면 일반
     const bool bLastHit = (ComboIndex == CurrentMontages.Num() - 1);
     if (bLastHit && LastHitEventTag.IsValid())
     {
@@ -131,29 +130,26 @@ void UGA_Combo::PlayComboMontage()
         return;
     }
 
-    // 재생 속도에 따라 실제 시간이 줄/늘어나므로 히트·윈도우 타이밍도 같은 비율로 보정
+    // 재생 속도만큼 히트·윈도우 타이밍도 보정
     const float RateScale = (CurrentPlayRate > 0.f) ? (1.f / CurrentPlayRate) : 1.f;
 
-    // 블렌드아웃 시점은 마지막 안전망(윈도우 캔슬이 없었을 때만 체이닝/종료 결정).
-    // 외부 인터럽트(피격 등)는 콤보 종료.
+    // 블렌드아웃은 안전망(윈도우 캔슬 없을 때만 체이닝/종료), 외부 인터럽트는 콤보 종료
     MontageTask->OnBlendOut.AddDynamic(this, &UGA_Combo::OnComboBlendOut);
     MontageTask->OnInterrupted.AddDynamic(this, &UGA_Combo::OnComboInterrupted);
     MontageTask->OnCancelled.AddDynamic(this, &UGA_Combo::OnComboInterrupted);
 
-    // 이전 몽타주를 새 몽타주로 교체할 때 이전 태스크에서 발생하는 OnInterrupted를 무시하기 위한 가드.
-    // Montage_Play는 이전 몽타주를 동기적으로 중단하므로 ReadyForActivation 호출 동안만 켜두면 된다.
+    // 몽타주 교체 시 이전 태스크의 OnInterrupted 무시 가드(ReadyForActivation 동안만)
     bAdvancing = true;
     MontageTask->ReadyForActivation();
     bAdvancing = false;
 
-    // 전진키를 누르고 있고 타겟이 앞에 있으면 이 타에서 타겟 쪽으로 조금 접근
+    // 전진키+앞쪽 타겟이면 조금 접근
     TryStepInToTarget();
 
-    // 히트 판정은 몽타주의 "Melee Hit" 노티파이가 결정(타이머 트레이스 제거).
-    // 캔슬 윈도우 하한용으로만 사용할 기준 시간.
+    // 캔슬 윈도우 하한용 기준 시간(히트 판정 자체는 노티파이가 결정)
     const float ScaledHitDelay = HitDelay * RateScale;
 
-    // 캔슬 윈도우가 열리는 시점(몽타주 실제 재생 길이 * 비율). 히트 판정보다는 뒤에 열리도록 보정.
+    // 캔슬 윈도우 오픈 시점(히트 판정보다 뒤)
     const float Length = Montage->GetPlayLength() * RateScale;
     float WindowTime = Length * ComboWindowFraction;
     if (WindowTime < ScaledHitDelay + 0.02f)
@@ -171,7 +167,7 @@ void UGA_Combo::PlayComboMontage()
 
 void UGA_Combo::OnMeleeHitLanded()
 {
-    // 노티파이 윈도우에서 새 적이 맞은 프레임 — 공중 콤보면 플레이어 자신도 체공
+    // 공중 콤보면 타격 프레임에 자신도 체공
     if (bFloatSelfOnHit)
     {
         ApplySelfFloat();
@@ -193,7 +189,7 @@ void UGA_Combo::ApplySelfFloat()
 
     if (bSelfFloatActive == false)
     {
-        // 이미 낮춰져 있으면(런처 체공 등 다른 시스템이 관리 중) 정상값 1.0을 복원 기준으로
+        // 다른 시스템이 이미 낮췄으면 1.0을 복원 기준으로
         const float Cur = Move->GravityScale;
         SavedSelfGravity = (Cur >= 0.9f) ? Cur : 1.0f;
         bSelfFloatActive = true;
@@ -201,8 +197,7 @@ void UGA_Combo::ApplySelfFloat()
     }
     Move->GravityScale = SelfHangGravityScale;
 
-    // 위로 안 띄우고 수직 속도만 SelfPopZ(기본 0)로 설정 → 낙하만 멈춰 제자리 체공.
-    // (이전엔 LaunchCharacter로 매 타격마다 위로 솟던 문제 수정)
+    // 위로 안 띄우고 낙하만 멈춰 제자리 체공(매 타격 솟던 문제 수정)
     Move->Velocity.Z = SelfPopZ;
 }
 
@@ -230,7 +225,7 @@ void UGA_Combo::RestoreSelfGravity()
 
 void UGA_Combo::OnComboWindowOpen()
 {
-    // 캔슬 윈도우 오픈 — 이미 버퍼된 입력이 있으면 즉시 다음 타로
+    // 버퍼된 입력이 있으면 즉시 다음 타로
     bWindowOpen = true;
     if (bInputBuffered)
     {
@@ -240,7 +235,7 @@ void UGA_Combo::OnComboWindowOpen()
 
 void UGA_Combo::AdvanceCombo()
 {
-    // 이 타에서 이미 넘어갔으면 무시(중복 진행 방지)
+    // 이미 넘어갔으면 무시
     if (bChained)
     {
         return;
@@ -264,7 +259,7 @@ void UGA_Combo::OnComboBlendOut()
         return;
     }
 
-    // 윈도우에서 못 넘어갔지만 막판에 버퍼된 입력이 있으면 여기서 체이닝(안전망)
+    // 막판 버퍼 입력은 여기서 체이닝(안전망)
     if (bInputBuffered && ComboIndex + 1 < CurrentMontages.Num())
     {
         AdvanceCombo();
@@ -277,7 +272,7 @@ void UGA_Combo::OnComboBlendOut()
 
 void UGA_Combo::OnComboInterrupted()
 {
-    // 우리가 의도적으로 몽타주를 교체하면서 발생한 인터럽트는 무시
+    // 의도적 몽타주 교체로 생긴 인터럽트는 무시
     if (bAdvancing)
     {
         return;
@@ -295,8 +290,8 @@ void UGA_Combo::EndAbility(
     bool bWasCancelled)
 {
     StopStepIn();
-    StopMeleeHitWindow();   // 타격 윈도우 타이머 정리
-    RestoreSelfGravity();   // 콤보 끝나면 자기 체공 해제(공중이면 다시 정상 낙하)
+    StopMeleeHitWindow();
+    RestoreSelfGravity();
     Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }
 
@@ -328,7 +323,7 @@ AActor* UGA_Combo::FindStepInTarget(const FVector& SelfLoc, const FVector& Forwa
         {
             continue;
         }
-        // 캐릭터 정면 반구 안(앞쪽)에 있는 적만
+        // 정면(앞쪽) 적만
         if (FVector::DotProduct(ToFlat.GetSafeNormal(), Forward) < 0.f)
         {
             continue;
@@ -352,7 +347,7 @@ void UGA_Combo::TryStepInToTarget()
         return;
     }
 
-    // 전진키 눌림 판정 (이동 잠금 중에도 PlayerCharacter가 입력값을 기록함)
+    // 이동 잠금 중에도 입력값은 기록됨
     AActor* TargetActor = nullptr;
     if (APlayerCharacter* Player = Cast<APlayerCharacter>(Char))
     {
@@ -392,10 +387,10 @@ void UGA_Combo::TryStepInToTarget()
     const float Dist = ToTarget.Size();
     const FVector Dir = (Dist > KINDA_SMALL_NUMBER) ? (ToTarget / Dist) : Forward;
 
-    // 타겟을 바라보는 목표 회전(Yaw만) — 가까워서 이동이 없어도 회전은 하도록
+    // 목표 회전(Yaw만) — 이동 없어도 회전은 함
     StepInTargetRot = FRotator(0.f, Dir.Rotation().Yaw, 0.f);
 
-    // 정지 거리보다 멀면 그만큼 접근(최대 MaxStep), 가까우면 이동 0(회전만)
+    // 정지 거리 밖이면 접근(최대 MaxStep), 안이면 회전만
     const float MoveDist = (Dist > CurrentStepIn.StopDistance)
         ? FMath::Min(Dist - CurrentStepIn.StopDistance, CurrentStepIn.MaxStep)
         : 0.f;
@@ -409,7 +404,7 @@ void UGA_Combo::TryStepInToTarget()
         World->GetTimerManager().SetTimer(
             StepInTimerHandle, this, &UGA_Combo::StepInTick, 0.016f, true);
     }
-    // 타이머 첫 발화(16ms 뒤)를 기다리지 않고 같은 프레임에 바로 이동 시작 → 모션과 동시에 전진
+    // 첫 틱을 기다리지 않고 즉시 이동(모션과 동시 전진)
     StepInTick();
 }
 
@@ -424,7 +419,7 @@ void UGA_Combo::StepInTick()
 
     StepInElapsed += 0.016f;
     const float Alpha = FMath::Clamp(StepInElapsed / CurrentStepIn.Duration, 0.f, 1.f);
-    // 시작에서 강하게 치고 나가고 끝에서 감속(cubic ease-out) — 모션 시작과 동시에 전진감
+    // cubic ease-out(시작 강하게, 끝 감속)
     const float Smooth = 1.f - FMath::Pow(1.f - Alpha, 3.f);
 
     FVector NewLoc = FMath::Lerp(StepInStartLoc, StepInEndLoc, Smooth);
@@ -432,7 +427,7 @@ void UGA_Combo::StepInTick()
 
     Char->SetActorLocation(NewLoc, true);    // sweep=true: 벽/적 충돌 존중
 
-    // 타겟을 바라보게 회전(Yaw만 부드럽게)
+    // Yaw만 부드럽게 회전
     if (CurrentStepIn.RotateSpeed > 0.f)
     {
         const FRotator NewRot = FMath::RInterpTo(Char->GetActorRotation(), StepInTargetRot, 0.016f, CurrentStepIn.RotateSpeed);
