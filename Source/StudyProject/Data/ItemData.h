@@ -30,6 +30,7 @@ enum class EDamageType : uint8
     Normal      UMETA(DisplayName = "일반"),
     Critical    UMETA(DisplayName = "치명타"),
     Heal        UMETA(DisplayName = "회복"),
+    DoT         UMETA(DisplayName = "지속피해"),
 };
 
 UENUM(BlueprintType)

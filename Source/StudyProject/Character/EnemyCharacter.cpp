@@ -14,9 +14,6 @@
 #include "Kismet/GameplayStatics.h"
 #include "Engine/World.h"
 #include "TimerManager.h"
-#include "NiagaraSystem.h"
-#include "NiagaraComponent.h"
-#include "NiagaraFunctionLibrary.h"
 #include "Engine/SkeletalMesh.h"
 #include "UObject/ConstructorHelpers.h"
 
@@ -125,16 +122,6 @@ void AEnemyCharacter::BeginPlay()
             .AddUObject(this, &AEnemyCharacter::OnMoveStatusTagChanged);
         AbilitySystemComponent->RegisterGameplayTagEvent(StudyTags::Status_Shocked, EGameplayTagEventType::NewOrRemoved)
             .AddUObject(this, &AEnemyCharacter::OnMoveStatusTagChanged);
-
-        // 상태이상 VFX(뼈대) — 4종 태그 on/off에 따라 Niagara 부착/제거
-        AbilitySystemComponent->RegisterGameplayTagEvent(StudyTags::Status_Burning, EGameplayTagEventType::NewOrRemoved)
-            .AddUObject(this, &AEnemyCharacter::OnStatusVFXTagChanged);
-        AbilitySystemComponent->RegisterGameplayTagEvent(StudyTags::Status_Bleeding, EGameplayTagEventType::NewOrRemoved)
-            .AddUObject(this, &AEnemyCharacter::OnStatusVFXTagChanged);
-        AbilitySystemComponent->RegisterGameplayTagEvent(StudyTags::Status_Shocked, EGameplayTagEventType::NewOrRemoved)
-            .AddUObject(this, &AEnemyCharacter::OnStatusVFXTagChanged);
-        AbilitySystemComponent->RegisterGameplayTagEvent(StudyTags::Status_Chilled, EGameplayTagEventType::NewOrRemoved)
-            .AddUObject(this, &AEnemyCharacter::OnStatusVFXTagChanged);
     }
 }
 
@@ -207,65 +194,6 @@ void AEnemyCharacter::Multicast_DestroyWarningDecal_Implementation()
     {
         WarningDecalComp->DestroyComponent();
         WarningDecalComp = nullptr;
-    }
-}
-
-UNiagaraSystem* AEnemyCharacter::GetStatusVFXFor(const FGameplayTag& Tag) const
-{
-    if (Tag == StudyTags::Status_Burning)
-    {
-        return BurningVFX;
-    }
-    if (Tag == StudyTags::Status_Bleeding)
-    {
-        return BleedingVFX;
-    }
-    if (Tag == StudyTags::Status_Shocked)
-    {
-        return ShockedVFX;
-    }
-    if (Tag == StudyTags::Status_Chilled)
-    {
-        return ChilledVFX;
-    }
-    return nullptr;
-}
-
-void AEnemyCharacter::OnStatusVFXTagChanged(const FGameplayTag Tag, int32 NewCount)
-{
-    UNiagaraSystem* System = GetStatusVFXFor(Tag);
-    if (System == nullptr)
-    {
-        return;   // 해당 상태 VFX 미지정 — 뼈대만, 에셋 꽂으면 동작
-    }
-
-    if (NewCount > 0)
-    {
-        // 이미 켜져 있으면 중복 스폰 방지
-        if (ActiveStatusVFX.Contains(Tag))
-        {
-            return;
-        }
-        UNiagaraComponent* Comp = UNiagaraFunctionLibrary::SpawnSystemAttached(
-            System, GetMesh(), NAME_None, FVector::ZeroVector, FRotator::ZeroRotator,
-            EAttachLocation::SnapToTarget, true);
-        if (Comp != nullptr)
-        {
-            ActiveStatusVFX.Add(Tag, Comp);
-        }
-    }
-    else
-    {
-        // 상태 해제 → VFX 제거
-        if (TObjectPtr<UNiagaraComponent>* Found = ActiveStatusVFX.Find(Tag))
-        {
-            if (*Found != nullptr)
-            {
-                (*Found)->DeactivateImmediate();
-                (*Found)->DestroyComponent();
-            }
-            ActiveStatusVFX.Remove(Tag);
-        }
     }
 }
 

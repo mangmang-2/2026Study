@@ -66,4 +66,10 @@ namespace StudyTags
     // Data.* (GameplayEffect SetByCaller 매그니튜드 키)
     STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Damage);
     STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_LaunchZ);
+
+    // GameplayCue.* (코스메틱 큐 — 상태이상 지속 VFX. GE가 적용/만료 시 ASC가 자동 복제 발동)
+    STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Status_Burning);
+    STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Status_Bleeding);
+    STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Status_Shocked);
+    STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Status_Chilled);
 }

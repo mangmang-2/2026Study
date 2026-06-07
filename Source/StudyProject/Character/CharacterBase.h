@@ -34,6 +34,10 @@ public:
     void Multicast_HitFeedback(class UNiagaraSystem* VFX, FVector Location, FVector Normal,
         AActor* Victim, int32 Damage, bool bCritical);
 
+    // 데미지 숫자만 전 클라에 표시(VFX/플래시 없음 — DOT 틱용). 서버에서만 호출.
+    UFUNCTION(NetMulticast, Unreliable)
+    void Multicast_DamageNumber(FVector Location, int32 Damage, EDamageType Type);
+
 protected:
     // 피격 시 피격자 메시에 잠깐 씌우는 흰색 플래시 오버레이 머티리얼
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Combat|FX")

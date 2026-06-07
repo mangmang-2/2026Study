@@ -7,6 +7,8 @@ UGE_StatusShocked::UGE_StatusShocked()
     // 1.5초 스턴(데미지 없음) — 태그만 부여, 만료 시 자동 제거
     DurationPolicy = EGameplayEffectDurationType::HasDuration;
     DurationMagnitude = FGameplayEffectModifierMagnitude(FScalableFloat(1.5f));
+
+    GameplayCues.Add(FGameplayEffectCue(StudyTags::GameplayCue_Status_Shocked, 1.f, 1.f));
 }
 
 void UGE_StatusShocked::PostInitProperties()

@@ -56,4 +56,9 @@ namespace StudyTags
 
     UE_DEFINE_GAMEPLAY_TAG(Data_Damage,  "Data.Damage");
     UE_DEFINE_GAMEPLAY_TAG(Data_LaunchZ, "Data.LaunchZ");
+
+    UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Status_Burning,  "GameplayCue.Status.Burning");
+    UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Status_Bleeding, "GameplayCue.Status.Bleeding");
+    UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Status_Shocked,  "GameplayCue.Status.Shocked");
+    UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Status_Chilled,  "GameplayCue.Status.Chilled");
 }

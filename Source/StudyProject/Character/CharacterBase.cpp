@@ -155,6 +155,25 @@ void ACharacterBase::Multicast_HitFeedback_Implementation(UNiagaraSystem* VFX, F
     }
 }
 
+void ACharacterBase::Multicast_DamageNumber_Implementation(FVector Location, int32 Damage, EDamageType Type)
+{
+    UWorld* World = GetWorld();
+    if (World == nullptr || Damage <= 0)
+    {
+        return;
+    }
+
+    APlayerController* PC = World->GetFirstPlayerController();
+    if (PC != nullptr && PC->IsLocalController())
+    {
+        if (UDamageNumberWidget* W = CreateWidget<UDamageNumberWidget>(PC, UDamageNumberWidget::StaticClass()))
+        {
+            W->AddToViewport(100);
+            W->Init(Damage, Type, Location);
+        }
+    }
+}
+
 void ACharacterBase::PossessedBy(AController* NewController)
 {
     Super::PossessedBy(NewController);

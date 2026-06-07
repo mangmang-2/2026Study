@@ -110,6 +110,10 @@ void UGA_Combo::PlayComboMontage()
 
     // 마지막 타는 LastHit(슬램), 아니면 일반
     const bool bLastHit = (ComboIndex == CurrentMontages.Num() - 1);
+
+    // 상태이상은 마지막 타에만(옵션 끄면 모든 타)
+    bApplyStatusThisSwing = bStatusOnLastHitOnly ? bLastHit : true;
+
     if (bLastHit && LastHitEventTag.IsValid())
     {
         MeleeHitEventTag = LastHitEventTag;

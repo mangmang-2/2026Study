@@ -197,19 +197,22 @@ bool UCombatGameplayAbility::ApplyMeleeDamage(float DamageAmount, FGameplayTag E
             SourceASC->ApplyGameplayEffectSpecToTarget(*Spec.Data.Get(), TargetASC);
         }
 
-        // 적중 시 상태이상 부여(설정된 GE만)
-        for (const TSubclassOf<UGameplayEffect>& StatusGE : OnHitStatusEffects)
+        // 적중 시 상태이상 부여(설정된 GE만, 이번 스윙이 허용될 때만 — 콤보는 마지막 타)
+        if (bApplyStatusThisSwing)
         {
-            if (StatusGE == nullptr)
+            for (const TSubclassOf<UGameplayEffect>& StatusGE : OnHitStatusEffects)
             {
-                continue;
-            }
-            FGameplayEffectContextHandle StatusCtx = SourceASC->MakeEffectContext();
-            StatusCtx.AddSourceObject(Avatar);
-            FGameplayEffectSpecHandle StatusSpec = SourceASC->MakeOutgoingSpec(StatusGE, 1.f, StatusCtx);
-            if (StatusSpec.IsValid())
-            {
-                SourceASC->ApplyGameplayEffectSpecToTarget(*StatusSpec.Data.Get(), TargetASC);
+                if (StatusGE == nullptr)
+                {
+                    continue;
+                }
+                FGameplayEffectContextHandle StatusCtx = SourceASC->MakeEffectContext();
+                StatusCtx.AddSourceObject(Avatar);
+                FGameplayEffectSpecHandle StatusSpec = SourceASC->MakeOutgoingSpec(StatusGE, 1.f, StatusCtx);
+                if (StatusSpec.IsValid())
+                {
+                    SourceASC->ApplyGameplayEffectSpecToTarget(*StatusSpec.Data.Get(), TargetASC);
+                }
             }
         }
 

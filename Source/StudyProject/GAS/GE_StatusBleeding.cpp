@@ -16,6 +16,8 @@ UGE_StatusBleeding::UGE_StatusBleeding()
     Mod.ModifierOp = EGameplayModOp::Additive;
     Mod.ModifierMagnitude = FGameplayEffectModifierMagnitude(FScalableFloat(7.f));
     Modifiers.Add(Mod);
+
+    GameplayCues.Add(FGameplayEffectCue(StudyTags::GameplayCue_Status_Bleeding, 1.f, 1.f));
 }
 
 void UGE_StatusBleeding::PostInitProperties()

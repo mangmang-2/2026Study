@@ -64,6 +64,10 @@ protected:
     UPROPERTY(EditDefaultsOnly, Category = "Combat|Damage")
     float LastHitEventMagnitude = 0.f;
 
+    // OnHitStatusEffects를 콤보 마지막 타에만 적용(피니셔 디버프). false면 모든 타.
+    UPROPERTY(EditDefaultsOnly, Category = "Combat|Status")
+    bool bStatusOnLastHitOnly = true;
+
     // ── 공중 콤보 자기 체공 ─────────────────────────────────────────────
     // 공중 타격 성공 시 플레이어 자신도 중력을 낮추고 살짝 다시 떠서 콤보 도중 안 떨어지게.
     UPROPERTY(EditDefaultsOnly, Category = "Combat|AirFloat")

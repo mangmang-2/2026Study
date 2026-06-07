@@ -13,8 +13,6 @@ class UGameplayEffect;
 class USkeletalMeshComponent;
 class USkeletalMesh;
 class UMaterialInterface;
-class UNiagaraSystem;
-class UNiagaraComponent;
 class UDecalComponent;
 
 /**
@@ -101,30 +99,7 @@ protected:
 
     void RefreshMoveSpeed();
 
-    // ── 상태이상 VFX 뼈대 ────────────────────────────────────────────
-    // 상태이상 태그 on/off에 대응 Niagara 부착/제거. BP에서 에셋 지정, 비우면 없음.
-    UPROPERTY(EditDefaultsOnly, Category = "Combat|Status|VFX")
-    TObjectPtr<UNiagaraSystem> BurningVFX;
-
-    UPROPERTY(EditDefaultsOnly, Category = "Combat|Status|VFX")
-    TObjectPtr<UNiagaraSystem> BleedingVFX;
-
-    UPROPERTY(EditDefaultsOnly, Category = "Combat|Status|VFX")
-    TObjectPtr<UNiagaraSystem> ShockedVFX;
-
-    UPROPERTY(EditDefaultsOnly, Category = "Combat|Status|VFX")
-    TObjectPtr<UNiagaraSystem> ChilledVFX;
-
-    // 상태이상 태그 변화 → 대응 VFX on/off
-    UFUNCTION()
-    void OnStatusVFXTagChanged(const FGameplayTag Tag, int32 NewCount);
-
-    // 태그→스폰된 Niagara 컴포넌트(활성 중인 것만). 키=상태 태그.
-    UPROPERTY(Transient)
-    TMap<FGameplayTag, TObjectPtr<UNiagaraComponent>> ActiveStatusVFX;
-
-    // 태그에 매핑된 Niagara 시스템 반환(없으면 nullptr)
-    UNiagaraSystem* GetStatusVFXFor(const FGameplayTag& Tag) const;
+    // 상태이상 지속 VFX는 GameplayCue(GCN_StatusAura)가 처리 — GE 적용/만료에 자동 연동.
 
     // ── 워닝 데칼 성장 ──────────────────────────────────────────────
     void UpdateGrowingDecal();   // 타이머: 데칼 길이/위치를 보스→끝점으로 성장

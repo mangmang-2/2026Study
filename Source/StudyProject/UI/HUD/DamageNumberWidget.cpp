@@ -26,7 +26,11 @@ TSharedRef<SWidget> UDamageNumberWidget::RebuildWidget()
 
 void UDamageNumberWidget::Init(int32 Damage, EDamageType Type, FVector WorldPos)
 {
-    WorldLoc = WorldPos;
+    // 같은 지점에 겹치지 않게 살짝 흩뿌림
+    WorldLoc = WorldPos + FVector(
+        FMath::RandRange(-25.f, 25.f),
+        FMath::RandRange(-25.f, 25.f),
+        FMath::RandRange(-10.f, 25.f));
     Elapsed = 0.f;
     bInitialized = true;
 
@@ -48,6 +52,10 @@ void UDamageNumberWidget::Init(int32 Damage, EDamageType Type, FVector WorldPos)
     else if (Type == EDamageType::Heal)
     {
         Color = FLinearColor(0.3f, 1.f, 0.3f);     // 초록
+    }
+    else if (Type == EDamageType::DoT)
+    {
+        Color = FLinearColor(0.9f, 0.1f, 0.1f);    // 빨강(출혈 등 지속피해)
     }
     DamageText->SetColorAndOpacity(FSlateColor(Color));
 

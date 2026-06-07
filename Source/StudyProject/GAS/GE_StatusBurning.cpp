@@ -17,6 +17,9 @@ UGE_StatusBurning::UGE_StatusBurning()
     Mod.ModifierOp = EGameplayModOp::Additive;
     Mod.ModifierMagnitude = FGameplayEffectModifierMagnitude(FScalableFloat(5.f));
     Modifiers.Add(Mod);
+
+    // 적용~만료 동안 화상 오라 큐 발동(ASC가 복제). 연출은 GCN_StatusAura BP 자식이 처리.
+    GameplayCues.Add(FGameplayEffectCue(StudyTags::GameplayCue_Status_Burning, 1.f, 1.f));
 }
 
 void UGE_StatusBurning::PostInitProperties()

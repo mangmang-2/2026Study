@@ -72,6 +72,9 @@ protected:
     UPROPERTY()
     FHitFeel MeleeHitFeel;
 
+    // 이번 스윙에 OnHitStatusEffects를 적용할지(콤보가 마지막 타만 켜는 용도). 기본 true.
+    bool bApplyStatusThisSwing = true;
+
 private:
     UFUNCTION()
     void OnMeleeHitStartEvent(FGameplayEventData Payload);

@@ -3,6 +3,7 @@
 #include "GameplayEffect.h"
 #include "Net/UnrealNetwork.h"
 #include "StudyGameplayTags.h"
+#include "Character/CharacterBase.h"
 
 UCombatAttributeSet::UCombatAttributeSet()
 {
@@ -51,6 +52,7 @@ void UCombatAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCall
     AActor* TargetActor = Data.Target.AbilityActorInfo.IsValid() ? Data.Target.AbilityActorInfo->AvatarActor.Get() : nullptr;
 
     // 데미지 meta attribute → HP 차감 후 0으로 리셋
+    float AppliedDamage = 0.f;
     if (Data.EvaluatedData.Attribute == GetDamageAttribute())
     {
         const float LocalDamage = GetDamage();
@@ -61,6 +63,7 @@ void UCombatAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCall
             // DEF 경감(간단식: 최소 1 데미지 보장)
             const float Mitigated = FMath::Max(1.f, LocalDamage - GetDEF() * 0.5f);
             SetHP(FMath::Clamp(GetHP() - Mitigated, 0.f, GetMaxHP()));
+            AppliedDamage = Mitigated;
         }
     }
     else if (Data.EvaluatedData.Attribute == GetHPAttribute())
@@ -98,5 +101,21 @@ void UCombatAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCall
         Payload.Instigator = Data.EffectSpec.GetContext().GetInstigator();
         Payload.Target = TargetActor;
         ASC->HandleGameplayEvent(StudyTags::Event_HitReact, &Payload);
+    }
+
+    // 지속피해(DOT) 틱은 빨간 데미지 숫자로 표시(직접 타격은 ApplyMeleeDamage가 처리)
+    if (bTookDamage && bIsPeriodicDamage && AppliedDamage > 0.f && TargetActor != nullptr)
+    {
+        const FVector NumLoc = TargetActor->GetActorLocation() + FVector(0.f, 0.f, 90.f);
+        AActor* Instigator = Data.EffectSpec.GetContext().GetInstigator();
+        ACharacterBase* Relay = Cast<ACharacterBase>(Instigator);
+        if (Relay == nullptr)
+        {
+            Relay = Cast<ACharacterBase>(TargetActor);   // 피해자가 플레이어면 그쪽 멀티캐스트로
+        }
+        if (Relay != nullptr)
+        {
+            Relay->Multicast_DamageNumber(NumLoc, FMath::RoundToInt(AppliedDamage), EDamageType::DoT);
+        }
     }
 }
