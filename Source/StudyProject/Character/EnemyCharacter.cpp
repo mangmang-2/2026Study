@@ -1,4 +1,5 @@
 #include "EnemyCharacter.h"
+#include "Character/CharacterBase.h"
 #include "GAS/CombatAbilitySystemComponent.h"
 #include "GAS/CombatAttributeSet.h"
 #include "GAS/GA_EnemyAttack.h"
@@ -21,7 +22,8 @@ AEnemyCharacter::AEnemyCharacter()
 {
     AbilitySystemComponent = CreateDefaultSubobject<UCombatAbilitySystemComponent>(TEXT("AbilitySystemComponent"));
     AbilitySystemComponent->SetIsReplicated(true);
-    AbilitySystemComponent->SetReplicationMode(EGameplayEffectReplicationMode::Mixed);
+    // AI라 소유 클라 연결이 없음 → Mixed 아닌 Minimal(태그/큐만 리플리케이트)
+    AbilitySystemComponent->SetReplicationMode(EGameplayEffectReplicationMode::Minimal);
 
     AttributeSet = CreateDefaultSubobject<UCombatAttributeSet>(TEXT("AttributeSet"));
 
@@ -195,6 +197,12 @@ void AEnemyCharacter::Multicast_DestroyWarningDecal_Implementation()
         WarningDecalComp->DestroyComponent();
         WarningDecalComp = nullptr;
     }
+}
+
+void AEnemyCharacter::Multicast_EnterRagdoll_Implementation()
+{
+    // 래그돌 물리 전환은 플레이어와 동일 로직(ACharacterBase 정적 헬퍼) 공유
+    ACharacterBase::ApplyRagdollPhysics(this);
 }
 
 void AEnemyCharacter::OnMoveStatusTagChanged(const FGameplayTag /*Tag*/, int32 /*NewCount*/)

@@ -42,6 +42,10 @@ public:
     UFUNCTION(NetMulticast, Reliable)
     void Multicast_DestroyWarningDecal();
 
+    // 사망 래그돌 전환을 전 클라에 적용(적은 ACharacterBase가 아니라 자체 멀티캐스트 필요). 서버에서만 호출.
+    UFUNCTION(NetMulticast, Reliable)
+    void Multicast_EnterRagdoll();
+
 protected:
     virtual void BeginPlay() override;
 

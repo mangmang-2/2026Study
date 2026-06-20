@@ -38,6 +38,18 @@ public:
     UFUNCTION(NetMulticast, Unreliable)
     void Multicast_DamageNumber(FVector Location, int32 Damage, EDamageType Type);
 
+    // 사망 시 래그돌 전환을 전 클라에 적용. 물리는 복제 안 되므로 멀티캐스트 필수. 서버에서만 호출.
+    UFUNCTION(NetMulticast, Reliable)
+    void Multicast_EnterRagdoll();
+
+    // 래그돌 해제(리스폰 등) — 메시 캡슐 재부착·물리 정지를 전 클라에 적용. 서버에서만 호출.
+    UFUNCTION(NetMulticast, Reliable)
+    void Multicast_ExitRagdoll();
+
+    // 어떤 ACharacter든 래그돌 물리로 전환하는 공용 로직(멀티캐스트에서 호출).
+    // 적(AEnemyCharacter)은 ACharacterBase가 아니라 이 헬퍼를 공유한다.
+    static void ApplyRagdollPhysics(class ACharacter* Char);
+
 protected:
     // 피격 시 피격자 메시에 잠깐 씌우는 흰색 플래시 오버레이 머티리얼
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Combat|FX")
@@ -182,4 +194,8 @@ protected:
 
 private:
     void SetupModularMesh(USkeletalMeshComponent* Part);
+
+    // 래그돌 해제 시 메인 메시를 캡슐에 되돌리기 위한 기본값(BeginPlay에서 캡처)
+    FTransform DefaultMeshRelativeTransform;
+    FName      DefaultMeshCollisionProfile;
 };

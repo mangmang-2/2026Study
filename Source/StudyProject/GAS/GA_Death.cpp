@@ -4,8 +4,8 @@
 #include "GameFramework/Character.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PlayerController.h"
-#include "Components/CapsuleComponent.h"
-#include "Components/SkeletalMeshComponent.h"
+#include "Character/CharacterBase.h"
+#include "Character/EnemyCharacter.h"
 
 UGA_Death::UGA_Death()
 {
@@ -69,24 +69,18 @@ void UGA_Death::ActivateAbility(
 
 void UGA_Death::OnDeathMontageFinished()
 {
-    ACharacter* Char = Cast<ACharacter>(GetAvatarActorFromActorInfo());
-    if (Char == nullptr)
+    // 서버 권위에서 래그돌을 전 클라에 멀티캐스트(물리는 복제 안 되므로).
+    // 플레이어(ACharacterBase)와 적(AEnemyCharacter)은 서로 다른 베이스라 각자 멀티캐스트 호출.
+    AActor* Avatar = GetAvatarActorFromActorInfo();
+    if (ACharacterBase* PlayerChar = Cast<ACharacterBase>(Avatar))
     {
-        return;
+        PlayerChar->Multicast_EnterRagdoll();
     }
-
-    // 래그돌 전환
-    if (USkeletalMeshComponent* Mesh = Char->GetMesh())
+    else if (AEnemyCharacter* Enemy = Cast<AEnemyCharacter>(Avatar))
     {
-        Mesh->SetCollisionProfileName(TEXT("Ragdoll"));
-        Mesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-        Mesh->SetAllBodiesSimulatePhysics(true);
-        Mesh->SetSimulatePhysics(true);
-        Mesh->WakeAllRigidBodies();
-    }
-    if (UCapsuleComponent* Capsule = Char->GetCapsuleComponent())
-    {
-        Capsule->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+        Enemy->Multicast_EnterRagdoll();
+        // 적 시체는 일정 시간 후 소멸(서버에서 SetLifeSpan → 전 클라 동기 파괴)
+        Enemy->SetLifeSpan(6.0f);
     }
     // 사망 상태 유지를 위해 EndAbility 호출하지 않음(상태 태그 보존)
 }

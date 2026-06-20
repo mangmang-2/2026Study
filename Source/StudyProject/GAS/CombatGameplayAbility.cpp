@@ -64,6 +64,13 @@ bool UCombatGameplayAbility::ApplyMeleeDamage(float DamageAmount, FGameplayTag E
         return false;
     }
 
+    // 타격 판정은 서버 권위. 예측 클라(LocalPredicted)에선 트레이스/넉백/이벤트 스킵 —
+    // 시각효과는 서버가 Multicast_HitFeedback으로 전 클라에 뿌림.
+    if (Avatar->HasAuthority() == false)
+    {
+        return false;
+    }
+
     const FVector Start = Avatar->GetActorLocation();
     const FVector End = Start + Avatar->GetActorForwardVector() * MeleeRange;
 
@@ -305,23 +312,51 @@ void UCombatGameplayAbility::StartMeleeHitWindowListeners()
 
 void UCombatGameplayAbility::OnMeleeHitStartEvent(FGameplayEventData /*Payload*/)
 {
-    // 새 스윙 — 중복방지 셋 초기화 후 윈도우 동안 매 프레임 트레이스
-    MeleeSwingHitActors.Reset();
-    if (UWorld* World = GetWorld())
+    UWorld* World = GetWorld();
+    if (World == nullptr)
     {
-        World->GetTimerManager().SetTimer(
-            MeleeWindowTimer, this, &UCombatGameplayAbility::MeleeWindowTick, 0.016f, true);
-        MeleeWindowTick();   // 시작 지연 없이 즉시 1회
+        return;
     }
+
+    // 서버에서 원격 폰(autonomous proxy)은 HitStart가 임팩트 구간 내내 매 프레임 재발생한다.
+    // MeleeWindowOpenTime = "마지막 HitStart 수신 시각"으로 매번 갱신 → 틱이 끊김(>0.05s)을 보고
+    // 임팩트 구간 종료를 판정한다. 한 임팩트 구간(=한 스윙) 진입 시에만 중복방지 셋을 리셋해,
+    // 노티파이가 몇 번 울리든 한 스윙 = 데미지·넉백·히트스톱 각 1회가 된다.
+    MeleeWindowOpenTime = World->GetTimeSeconds();
+
+    if (bMeleeWindowOpen)
+    {
+        return;   // 이미 같은 임팩트 구간 진행 중 — 타이머/리셋 중복 방지
+    }
+    bMeleeWindowOpen = true;
+    MeleeSwingHitActors.Reset();   // 새 임팩트 구간(새 스윙) — 여기서만 리셋
+    World->GetTimerManager().SetTimer(
+        MeleeWindowTimer, this, &UCombatGameplayAbility::MeleeWindowTick, 0.016f, true);
+    MeleeWindowTick();   // 시작 지연 없이 즉시 1회
 }
 
 void UCombatGameplayAbility::OnMeleeHitEndEvent(FGameplayEventData /*Payload*/)
 {
-    StopMeleeHitWindow();
+    // 노티파이 End는 서버에서 매 프레임 재발생할 수 있어 신뢰 불가 → 무시.
+    // 윈도우는 MeleeWindowTick이 HitStart 끊김(>0.05s)을 감지해 스스로 닫는다.
+}
+
+void UCombatGameplayAbility::ResetMeleeSwingHits()
+{
+    MeleeSwingHitActors.Reset();
 }
 
 void UCombatGameplayAbility::MeleeWindowTick()
 {
+    // HitStart가 0.05s 넘게 끊겼으면 임팩트 구간 종료 → 윈도우 닫기(다음 스윙 HitStart가 다시 연다)
+    UWorld* World = GetWorld();
+    if (World != nullptr && bMeleeWindowOpen
+        && (World->GetTimeSeconds() - MeleeWindowOpenTime) > 0.05)
+    {
+        StopMeleeHitWindow();
+        return;
+    }
+
     const bool bNewHit = ApplyMeleeDamage(MeleeDamage, MeleeHitEventTag, MeleeHitEventMagnitude, MeleeHitFeel, &MeleeSwingHitActors);
     if (bNewHit)
     {
@@ -331,6 +366,7 @@ void UCombatGameplayAbility::MeleeWindowTick()
 
 void UCombatGameplayAbility::StopMeleeHitWindow()
 {
+    bMeleeWindowOpen = false;
     if (UWorld* World = GetWorld())
     {
         World->GetTimerManager().ClearTimer(MeleeWindowTimer);

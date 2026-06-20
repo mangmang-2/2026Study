@@ -62,6 +62,10 @@ protected:
     void StartMeleeHitWindowListeners();
     void StopMeleeHitWindow();
 
+    // 새 스윙 시작 시 호출 — 중복방지 셋 리셋. 노티파이(HitStart)가 서버에서 매 프레임
+    // 재발생해도 한 스윙당 1히트가 되도록, 리셋을 노티파이가 아니라 실제 스윙에 묶는다.
+    void ResetMeleeSwingHits();
+
     // 윈도우 중 새 대상이 맞은 프레임 훅(자기 체공 등)
     virtual void OnMeleeHitLanded() {}
 
@@ -84,4 +88,9 @@ private:
 
     TSet<TWeakObjectPtr<AActor>> MeleeSwingHitActors;
     FTimerHandle MeleeWindowTimer;
+
+    // 한 스윙당 1번만 윈도우를 열기 위한 가드(노티파이 매 프레임 재발생 대비).
+    bool   bMeleeWindowOpen = false;
+    // 직전 중복방지 셋 리셋 시각 — 노티파이 재발생을 시간 디바운스로 한 스윙으로 묶는다.
+    double MeleeWindowOpenTime = 0.0;
 };

@@ -86,6 +86,17 @@ void UCombatAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCall
     {
         ASC->AddLooseGameplayTag(StudyTags::State_Dead);
 
+        // 사망 시 진행 중 상태이상(DOT 등) GE 제거 — GE가 빠지면 GameplayCue도 OnRemove로
+        // 정리돼 시체에 도트 VFX가 남지 않는다.
+        {
+            FGameplayTagContainer StatusTags;
+            StatusTags.AddTag(StudyTags::Status_Burning);
+            StatusTags.AddTag(StudyTags::Status_Bleeding);
+            StatusTags.AddTag(StudyTags::Status_Shocked);
+            StatusTags.AddTag(StudyTags::Status_Chilled);
+            ASC->RemoveActiveEffectsWithGrantedTags(StatusTags);
+        }
+
         // 사망 이벤트(사망 GA 수신)
         FGameplayEventData Payload;
         Payload.EventTag = StudyTags::Event_Death;

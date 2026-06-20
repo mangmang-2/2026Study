@@ -752,39 +752,23 @@ void APlayerCharacter::Respawn()
         Attr->SetSP(Attr->GetMaxSP());
     }
 
-    // 초기 스폰 위치로 복귀
-    SetActorTransform(SpawnTransform, false, nullptr, ETeleportType::TeleportPhysics);
-
-    // 이동/입력 복원
-    if (UCharacterMovementComponent* Move = GetCharacterMovement())
-    {
-        Move->SetMovementMode(MOVE_Walking);
-    }
-    if (APlayerController* PC = Cast<APlayerController>(GetController()))
-    {
-        EnableInput(PC);
-    }
-
-    // GA_Death 취소(누운 상태 유지 중인 어빌리티 종료)
+    // GA_Death 취소(누운 상태 유지 중인 어빌리티 종료) — 래그돌 해제보다 먼저
     FGameplayTagContainer DeathTag;
     DeathTag.AddTag(StudyTags::State_Dead);
     GetAbilitySystemComponent()->CancelAbilities(&DeathTag);
 
-    // 래그돌 해제 + 메시 캡슐에 재부착·기본 트랜스폼 복원
-    if (USkeletalMeshComponent* CharacterMesh = GetMesh())
+    // 래그돌 해제(메시 재부착·물리 정지·캡슐/이동/스무딩 복원)를 전 클라에 적용 —
+    // 안 그러면 다른 클라엔 시체만 남고 리스폰이 안 보인다.
+    Multicast_ExitRagdoll();
+
+    // 초기 스폰 위치로 복귀(서버 → 이동 복제로 클라 반영)
+    SetActorTransform(SpawnTransform, false, nullptr, ETeleportType::TeleportPhysics);
+
+    // 입력 복원
+    if (APlayerController* PC = Cast<APlayerController>(GetController()))
     {
-        CharacterMesh->SetSimulatePhysics(false);
-        CharacterMesh->SetAllBodiesSimulatePhysics(false);
-        CharacterMesh->AttachToComponent(GetCapsuleComponent(), FAttachmentTransformRules::SnapToTargetNotIncludingScale);
-        CharacterMesh->SetRelativeTransform(InitialMeshTransform);   // BeginPlay에서 저장한 값
-        CharacterMesh->SetCollisionProfileName(InitialMeshProfile);  // BeginPlay에서 저장
+        EnableInput(PC);
     }
-
-    // 캡슐 콜리전 복원
-    GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-
-    // 이동 복원
-    GetCharacterMovement()->SetMovementMode(MOVE_Walking);
 
     bIsDead = false;
 }

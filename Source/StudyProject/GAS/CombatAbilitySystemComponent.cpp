@@ -16,28 +16,58 @@ bool UCombatAbilitySystemComponent::TryActivateAbilityByInputTag(FGameplayTag In
         return false;
     }
 
+    // 이미 활성 중인 콤보면 재활성화 대신 다음 타를 버퍼링한다.
+    if (NotifyActiveComboForTag(InputTag))
+    {
+        // 클라의 NotifyComboInput은 로컬이라 서버 인스턴스가 못 받음 → 서버에도 전달
+        if (IsOwnerActorAuthoritative() == false)
+        {
+            ServerNotifyComboInput(InputTag);
+        }
+        return true;
+    }
+
+    // 활성 콤보가 없으면 새로 발동(LocalPredicted라 GAS가 서버로 복제)
     ABILITYLIST_SCOPE_LOCK();
     for (const FGameplayAbilitySpec& Spec : GetActivatableAbilities())
     {
         const UCombatGameplayAbility* GA = Cast<UCombatGameplayAbility>(Spec.Ability);
         if (GA != nullptr && GA->InputTag.IsValid() && GA->InputTag == InputTag)
         {
-            // 이미 활성 중인 콤보 어빌리티면 재활성화 대신 다음 타를 버퍼링한다.
-            for (UGameplayAbility* Instance : Spec.GetAbilityInstances())
-            {
-                if (Instance != nullptr && Instance->IsActive())
-                {
-                    if (UGA_Combo* Combo = Cast<UGA_Combo>(Instance))
-                    {
-                        Combo->NotifyComboInput();
-                        return true;
-                    }
-                }
-            }
             return TryActivateAbility(Spec.Handle);
         }
     }
     return false;
+}
+
+bool UCombatAbilitySystemComponent::NotifyActiveComboForTag(FGameplayTag InputTag)
+{
+    ABILITYLIST_SCOPE_LOCK();
+    for (const FGameplayAbilitySpec& Spec : GetActivatableAbilities())
+    {
+        const UCombatGameplayAbility* GA = Cast<UCombatGameplayAbility>(Spec.Ability);
+        if (GA == nullptr || GA->InputTag.IsValid() == false || GA->InputTag != InputTag)
+        {
+            continue;
+        }
+        for (UGameplayAbility* Instance : Spec.GetAbilityInstances())
+        {
+            if (Instance != nullptr && Instance->IsActive())
+            {
+                if (UGA_Combo* Combo = Cast<UGA_Combo>(Instance))
+                {
+                    Combo->NotifyComboInput();
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
+void UCombatAbilitySystemComponent::ServerNotifyComboInput_Implementation(FGameplayTag InputTag)
+{
+    NotifyActiveComboForTag(InputTag);
 }
 
 bool UCombatAbilitySystemComponent::IsMovementLocked() const

@@ -252,6 +252,7 @@ void UGA_Combo::AdvanceCombo()
     bChained = true;
     bInputBuffered = false;
     ComboIndex++;
+
     PlayComboMontage();
 }
 
@@ -351,14 +352,17 @@ void UGA_Combo::TryStepInToTarget()
         return;
     }
 
-    // 이동 잠금 중에도 입력값은 기록됨
+    // 스텝인(SetActorLocation)은 서버 권위로만 수행 — 클라(LocalPredicted)가 예측 이동하면
+    // 서버는 원격 클라의 전진 입력을 몰라 안 움직이고, 그 차이를 서버가 보정해 "앞으로 갔다
+    // 제자리로 스냅백"된다. 서버가 이동시키고 복제로 클라에 반영하면 스냅백이 사라진다.
+    if (Char->HasAuthority() == false)
+    {
+        return;
+    }
+
     AActor* TargetActor = nullptr;
     if (APlayerCharacter* Player = Cast<APlayerCharacter>(Char))
     {
-        if (Player->GetMoveInput().Y < StepInForwardThreshold)
-        {
-            return;   // 전진키를 누르고 있지 않음
-        }
         // 록온 중이면 그 타겟 우선
         if (ULockOnComponent* Lock = Player->GetLockOnComponent())
         {

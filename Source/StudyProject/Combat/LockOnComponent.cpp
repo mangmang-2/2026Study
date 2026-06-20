@@ -5,6 +5,7 @@
 #include "AbilitySystemBlueprintLibrary.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "Kismet/GameplayStatics.h"
 
 ULockOnComponent::ULockOnComponent()
@@ -55,12 +56,24 @@ bool ULockOnComponent::IsValidTarget(AActor* Target) const
     {
         return false;
     }
-    // 사망한 적 제외
+    // 사망한 적 제외 (서버: State.Dead 루스 태그)
     if (UAbilitySystemComponent* ASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(Target))
     {
         if (ASC->HasMatchingGameplayTag(StudyTags::State_Dead))
         {
             return false;
+        }
+    }
+    // 시체(래그돌) 제외 — State.Dead 루스태그는 클라에 복제 안 되지만, 사망 래그돌은
+    // 멀티캐스트로 전 클라에서 메시가 물리 시뮬 중이라 이걸로 클라에서도 시체를 거른다.
+    if (ACharacter* TargetChar = Cast<ACharacter>(Target))
+    {
+        if (USkeletalMeshComponent* TargetMesh = TargetChar->GetMesh())
+        {
+            if (TargetMesh->IsSimulatingPhysics())
+            {
+                return false;
+            }
         }
     }
     return true;

@@ -21,4 +21,12 @@ public:
     // 활성 GA 중 bLocksMovement가 있으면 true
     UFUNCTION(BlueprintCallable, Category = "Abilities")
     bool IsMovementLocked() const;
+
+private:
+    // 콤보 이어치기 입력을 서버에 전달(클라 NotifyComboInput은 로컬이라 서버 인스턴스가 못 받음)
+    UFUNCTION(Server, Reliable)
+    void ServerNotifyComboInput(FGameplayTag InputTag);
+
+    // InputTag와 일치하는 활성 콤보 인스턴스가 있으면 NotifyComboInput 호출 후 true
+    bool NotifyActiveComboForTag(FGameplayTag InputTag);
 };

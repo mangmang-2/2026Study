@@ -14,6 +14,7 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "Animation/AnimInstance.h"
 #include "NiagaraComponent.h"
 #include "NiagaraFunctionLibrary.h"
 #include "NiagaraSystem.h"
@@ -174,6 +175,85 @@ void ACharacterBase::Multicast_DamageNumber_Implementation(FVector Location, int
     }
 }
 
+void ACharacterBase::Multicast_EnterRagdoll_Implementation()
+{
+    ApplyRagdollPhysics(this);
+}
+
+void ACharacterBase::ApplyRagdollPhysics(ACharacter* Char)
+{
+    if (Char == nullptr)
+    {
+        return;
+    }
+
+    // 이동 정지 + 네트워크 스무딩 끄기(모든 머신) — 안 끄면 원격 클라(simulated proxy)에서
+    // CMC 스무딩이 메시 상대 위치를 서있는 자세로 되돌려 래그돌이 캡슐로 빨려든다.
+    if (UCharacterMovementComponent* Move = Char->GetCharacterMovement())
+    {
+        Move->StopMovementImmediately();
+        Move->DisableMovement();
+        Move->NetworkSmoothingMode = ENetworkSmoothingMode::Disabled;
+    }
+
+    // 서버: 캡슐 이동 복제 차단 — 복제된 캡슐 위치가 클라 래그돌 메시를 되돌리는 것 방지.
+    if (Char->HasAuthority())
+    {
+        Char->SetReplicateMovement(false);
+    }
+
+    if (USkeletalMeshComponent* MeshComp = Char->GetMesh())
+    {
+        // 진행 중 몽타주(사망 애님 등) 정지 — 끝나며 idle로 블렌드해 일어서는 것 방지
+        if (UAnimInstance* AnimInst = MeshComp->GetAnimInstance())
+        {
+            AnimInst->Montage_Stop(0.0f);
+        }
+        // 캡슐에서 분리 — 복제된 캡슐 위치가 래그돌 메시를 다시 정렬하지 못하게 독립시킴
+        MeshComp->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
+        MeshComp->SetCollisionProfileName(TEXT("Ragdoll"));
+        MeshComp->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+        MeshComp->SetAllBodiesSimulatePhysics(true);
+        MeshComp->SetSimulatePhysics(true);
+        MeshComp->SetAllBodiesPhysicsBlendWeight(1.0f);   // 애님이 물리를 덮어쓰지 않게 풀 물리
+        MeshComp->WakeAllRigidBodies();
+    }
+    if (UCapsuleComponent* Capsule = Char->GetCapsuleComponent())
+    {
+        Capsule->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    }
+}
+
+void ACharacterBase::Multicast_ExitRagdoll_Implementation()
+{
+    // 서버: 이동 복제 복원
+    if (HasAuthority())
+    {
+        SetReplicateMovement(true);
+    }
+
+    // 메시 물리 정지 + 캡슐에 재부착·기본 트랜스폼 복원(전 클라)
+    if (USkeletalMeshComponent* MeshComp = GetMesh())
+    {
+        MeshComp->SetAllBodiesPhysicsBlendWeight(0.0f);
+        MeshComp->SetSimulatePhysics(false);
+        MeshComp->SetAllBodiesSimulatePhysics(false);
+        MeshComp->AttachToComponent(GetCapsuleComponent(), FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+        MeshComp->SetRelativeTransform(DefaultMeshRelativeTransform);
+        MeshComp->SetCollisionProfileName(DefaultMeshCollisionProfile);
+    }
+    if (UCapsuleComponent* Capsule = GetCapsuleComponent())
+    {
+        Capsule->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+    }
+    // 이동/네트워크 스무딩 복원
+    if (UCharacterMovementComponent* Move = GetCharacterMovement())
+    {
+        Move->NetworkSmoothingMode = ENetworkSmoothingMode::Exponential;
+        Move->SetMovementMode(MOVE_Walking);
+    }
+}
+
 void ACharacterBase::PossessedBy(AController* NewController)
 {
     Super::PossessedBy(NewController);
@@ -242,6 +322,13 @@ void ACharacterBase::BeginPlay()
     if (GetCharacterMovement() != nullptr)
     {
         BaseWalkSpeed = GetCharacterMovement()->MaxWalkSpeed;
+    }
+
+    // 래그돌 해제 시 복원할 메인 메시 기본 트랜스폼/콜리전 캡처
+    if (USkeletalMeshComponent* MeshComp = GetMesh())
+    {
+        DefaultMeshRelativeTransform = MeshComp->GetRelativeTransform();
+        DefaultMeshCollisionProfile = MeshComp->GetCollisionProfileName();
     }
     if (AbilitySystemComponent != nullptr)
     {

@@ -3,6 +3,21 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "NiagaraComponent.h"
 #include "NiagaraFunctionLibrary.h"
+#include "Engine/World.h"
+#include "AbilitySystemComponent.h"
+#include "AbilitySystemBlueprintLibrary.h"
+
+// 큐 태그(GameplayCue.Status.Bleeding)에서 대응 상태이상 태그(Status.Bleeding) 도출
+static FGameplayTag StatusTagFromCue(const FGameplayTag& CueTag)
+{
+    if (CueTag.IsValid() == false)
+    {
+        return FGameplayTag();
+    }
+    FString S = CueTag.ToString();
+    S.RemoveFromStart(TEXT("GameplayCue."), ESearchCase::CaseSensitive);   // → "Status.Bleeding"
+    return FGameplayTag::RequestGameplayTag(FName(*S), /*ErrorIfNotFound*/ false);
+}
 
 AGCN_StatusAura::AGCN_StatusAura()
 {
@@ -25,6 +40,21 @@ bool AGCN_StatusAura::WhileActive_Implementation(AActor* MyTarget, const FGamepl
 
 bool AGCN_StatusAura::OnRemove_Implementation(AActor* MyTarget, const FGameplayCueParameters& Parameters)
 {
+    // 클라(simulated proxy)에선 주기형(DOT) GE가 매 주기마다 큐 OnRemove를 헛 발생시킨다 →
+    // 대상에게 상태이상 태그가 아직 있으면 무시해 VFX 유지.
+    // 서버(authority)에선 OnRemove가 진짜 끝에 한 번만 오므로(태그 제거가 살짝 늦어도) 바로 제거해야
+    // 한다 — 안 그러면 bAutoDestroyOnRemove로 큐 액터만 사라지고 메시의 Niagara가 고아로 남는다.
+    const bool bIsClient = (MyTarget != nullptr && MyTarget->GetWorld() != nullptr
+        && MyTarget->GetWorld()->GetNetMode() == NM_Client);
+    if (bIsClient)
+    {
+        UAbilitySystemComponent* ASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(MyTarget);
+        const FGameplayTag StatusTag = StatusTagFromCue(Parameters.OriginalTag);
+        if (ASC != nullptr && StatusTag.IsValid() && ASC->HasMatchingGameplayTag(StatusTag))
+        {
+            return true;   // 클라 DOT 주기 churn — 무시
+        }
+    }
     RemoveAura();
     return true;
 }
