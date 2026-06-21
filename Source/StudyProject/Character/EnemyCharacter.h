@@ -46,6 +46,14 @@ public:
     UFUNCTION(NetMulticast, Reliable)
     void Multicast_EnterRagdoll();
 
+    // 전투 간보기(블록) 자세 여부 — ABP가 읽어 애님 레이어를 전환. 서버 BT가 세팅, 복제됨.
+    UPROPERTY(BlueprintReadOnly, Replicated, Category = "AI")
+    bool bBlockStance = false;
+
+    void SetBlockStance(bool bNew) { bBlockStance = bNew; }
+
+    virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
 protected:
     virtual void BeginPlay() override;
 

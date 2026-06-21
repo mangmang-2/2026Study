@@ -1,5 +1,6 @@
 #include "EnemyCharacter.h"
 #include "Character/CharacterBase.h"
+#include "Net/UnrealNetwork.h"
 #include "GAS/CombatAbilitySystemComponent.h"
 #include "GAS/CombatAttributeSet.h"
 #include "GAS/GA_EnemyAttack.h"
@@ -44,11 +45,9 @@ AEnemyCharacter::AEnemyCharacter()
     GetCapsuleComponent()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECR_Ignore);
     GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECR_Ignore);
 
-    // 오른손(hand_r) 본 — 플레이어 소켓과 동일 트랜스폼
+    // 오른손 무기 — HandSocket_R 소켓에 부착(소켓 트랜스폼이 그립을 결정)
     WeaponMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("EnemyWeaponMesh"));
-    WeaponMesh->SetupAttachment(GetMesh(), TEXT("hand_r"));
-    WeaponMesh->SetRelativeLocation(FVector(-11.667f, 6.511f, 3.214f));
-    WeaponMesh->SetRelativeRotation(FRotator(-13.685f, 65.706f, -2.570f));
+    WeaponMesh->SetupAttachment(GetMesh(), TEXT("HandSocket_R"));
     WeaponMesh->SetCollisionProfileName(TEXT("NoCollision"));
     WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECR_Ignore);
 
@@ -60,11 +59,9 @@ AEnemyCharacter::AEnemyCharacter()
         WeaponMesh->SetSkeletalMeshAsset(WeaponMeshAsset);
     }
 
-    // 왼손(hand_l) 본 방패
+    // 왼손 방패 — HandSocket_L 소켓에 부착
     ShieldMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("EnemyShieldMesh"));
-    ShieldMesh->SetupAttachment(GetMesh(), TEXT("hand_l"));
-    ShieldMesh->SetRelativeLocation(FVector(6.583f, 0.507f, 1.134f));
-    ShieldMesh->SetRelativeRotation(FRotator(-4.076f, -175.882f, 153.836f));
+    ShieldMesh->SetupAttachment(GetMesh(), TEXT("HandSocket_L"));
     ShieldMesh->SetCollisionProfileName(TEXT("NoCollision"));
     ShieldMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECR_Ignore);
 
@@ -203,6 +200,12 @@ void AEnemyCharacter::Multicast_EnterRagdoll_Implementation()
 {
     // 래그돌 물리 전환은 플레이어와 동일 로직(ACharacterBase 정적 헬퍼) 공유
     ACharacterBase::ApplyRagdollPhysics(this);
+}
+
+void AEnemyCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+    Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+    DOREPLIFETIME(AEnemyCharacter, bBlockStance);
 }
 
 void AEnemyCharacter::OnMoveStatusTagChanged(const FGameplayTag /*Tag*/, int32 /*NewCount*/)

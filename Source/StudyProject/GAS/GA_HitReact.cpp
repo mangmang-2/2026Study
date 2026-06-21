@@ -16,6 +16,10 @@ UGA_HitReact::UGA_HitReact()
     // 슈퍼아머 중엔 플린치 차단(데미지는 들어감)
     ActivationBlockedTags.AddTag(StudyTags::Status_SuperArmor);
 
+    // 활성 중 아바타에 State.HitReact 부여 — AI/애님이 피격 상태를 감지(블록 자세 해제 등).
+    // (SetAssetTags는 어빌 식별용일 뿐 아바타에 안 붙으므로 ActivationOwnedTags로 부여)
+    ActivationOwnedTags.AddTag(StudyTags::State_HitReact);
+
     // Event.HitReact 수신 시 자동 활성화
     FAbilityTriggerData Trigger;
     Trigger.TriggerTag = StudyTags::Event_HitReact;
