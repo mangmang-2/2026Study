@@ -175,6 +175,19 @@ void ACharacterBase::Multicast_DamageNumber_Implementation(FVector Location, int
     }
 }
 
+void ACharacterBase::Multicast_SpawnSkillVFX_Implementation(UNiagaraSystem* VFX, FVector Location, FVector Direction, float Scale)
+{
+    UWorld* World = GetWorld();
+    if (World == nullptr || VFX == nullptr)
+    {
+        return;
+    }
+
+    const FRotator Rot = Direction.IsNearlyZero() ? FRotator::ZeroRotator : Direction.Rotation();
+    const FVector ScaleVec = FVector(FMath::Max(0.01f, Scale));
+    UNiagaraFunctionLibrary::SpawnSystemAtLocation(World, VFX, Location, Rot, ScaleVec);
+}
+
 void ACharacterBase::Multicast_EnterRagdoll_Implementation()
 {
     ApplyRagdollPhysics(this);

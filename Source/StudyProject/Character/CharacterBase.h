@@ -38,6 +38,10 @@ public:
     UFUNCTION(NetMulticast, Unreliable)
     void Multicast_DamageNumber(FVector Location, int32 Damage, EDamageType Type);
 
+    // 스킬 착탄/폭발 VFX를 전 클라에 재생(코스메틱). 서버 권위에서만 호출.
+    UFUNCTION(NetMulticast, Unreliable)
+    void Multicast_SpawnSkillVFX(class UNiagaraSystem* VFX, FVector Location, FVector Direction, float Scale);
+
     // 사망 시 래그돌 전환을 전 클라에 적용. 물리는 복제 안 되므로 멀티캐스트 필수. 서버에서만 호출.
     UFUNCTION(NetMulticast, Reliable)
     void Multicast_EnterRagdoll();

@@ -15,6 +15,7 @@ namespace StudyTags
     STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Knockdown);   // 착지 후 넉다운(쓰러져 일어나는 중) — 타격 불가
     STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Finisher);
     STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Dead);
+    STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Casting);     // 스킬 시전 중(머리 위/화면 캐스트바 트리거)
 
     // Ability.* (GA 식별 + 입력 라우팅)
     STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Combo);
@@ -26,6 +27,7 @@ namespace StudyTags
     STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_LockOn);
     STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_EnemyAttack);   // 적 AI 공격 GA
     STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Stagger);       // 패리당한 적 스태거 GA
+    STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Skill);         // 컴포지션 스킬 실행 GA
 
     // Effect.*
     STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Effect_HitStop);
@@ -62,6 +64,9 @@ namespace StudyTags
     STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Input_Finisher);
     STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Input_Dodge);
     STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Input_Parry);   // 저스트카운터(패리) 입력
+    STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Input_Skill1);  // 스킬 슬롯 Q
+    STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Input_Skill2);  // 스킬 슬롯 E
+    STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Input_Skill3);  // 스킬 슬롯 R
 
     // Data.* (GameplayEffect SetByCaller 매그니튜드 키)
     STUDYPROJECT_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Damage);

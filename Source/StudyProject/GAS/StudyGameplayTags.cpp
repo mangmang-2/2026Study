@@ -11,6 +11,7 @@ namespace StudyTags
     UE_DEFINE_GAMEPLAY_TAG(State_Knockdown,   "State.Knockdown");
     UE_DEFINE_GAMEPLAY_TAG(State_Finisher,    "State.Finisher");
     UE_DEFINE_GAMEPLAY_TAG(State_Dead,        "State.Dead");
+    UE_DEFINE_GAMEPLAY_TAG(State_Casting,     "State.Casting");
 
     UE_DEFINE_GAMEPLAY_TAG(Ability_Combo,       "Ability.Combo");
     UE_DEFINE_GAMEPLAY_TAG(Ability_Dodge,       "Ability.Dodge");
@@ -21,6 +22,7 @@ namespace StudyTags
     UE_DEFINE_GAMEPLAY_TAG(Ability_LockOn,      "Ability.LockOn");
     UE_DEFINE_GAMEPLAY_TAG(Ability_EnemyAttack, "Ability.EnemyAttack");
     UE_DEFINE_GAMEPLAY_TAG(Ability_Stagger,     "Ability.Stagger");
+    UE_DEFINE_GAMEPLAY_TAG(Ability_Skill,       "Ability.Skill");
 
     UE_DEFINE_GAMEPLAY_TAG(Effect_HitStop,   "Effect.HitStop");
     UE_DEFINE_GAMEPLAY_TAG(Effect_Knockback, "Effect.Knockback");
@@ -53,6 +55,9 @@ namespace StudyTags
     UE_DEFINE_GAMEPLAY_TAG(Input_Finisher,  "Input.Finisher");
     UE_DEFINE_GAMEPLAY_TAG(Input_Dodge,     "Input.Dodge");
     UE_DEFINE_GAMEPLAY_TAG(Input_Parry,     "Input.Parry");
+    UE_DEFINE_GAMEPLAY_TAG(Input_Skill1,    "Input.Skill1");
+    UE_DEFINE_GAMEPLAY_TAG(Input_Skill2,    "Input.Skill2");
+    UE_DEFINE_GAMEPLAY_TAG(Input_Skill3,    "Input.Skill3");
 
     UE_DEFINE_GAMEPLAY_TAG(Data_Damage,  "Data.Damage");
     UE_DEFINE_GAMEPLAY_TAG(Data_LaunchZ, "Data.LaunchZ");

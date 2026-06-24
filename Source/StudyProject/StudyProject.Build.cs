@@ -45,6 +45,8 @@ public class StudyProject : ModuleRules
 			"StudyProject/Data",
 			"StudyProject/Subsystem",
 			"StudyProject/GAS",
+			"StudyProject/Skills",
+			"StudyProject/Skills/Modules",
 			"StudyProject/Character",
 			"StudyProject/Inventory",
 			"StudyProject/Item",

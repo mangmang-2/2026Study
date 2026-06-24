@@ -23,6 +23,10 @@
 #include "AbilitySystemBlueprintLibrary.h"
 #include "GameplayEffect.h"
 #include "Combat/LockOnComponent.h"
+#include "Skills/SkillManagerComponent.h"
+#include "UI/HUD/SkillHUDWidget.h"
+#include "UI/HUD/SkillCastBarWidget.h"
+#include "UI/HUD/SkillTreeWidget.h"
 #include "UI/HUD/HUDWidget.h"
 #include "UI/Dialogue/DialogueWidget.h"
 #include "UI/Shop/ShopScreenWidget.h"
@@ -111,6 +115,9 @@ APlayerCharacter::APlayerCharacter()
     // 록온 컴포넌트
     LockOnComp = CreateDefaultSubobject<ULockOnComponent>(TEXT("LockOnComp"));
 
+    // 스킬 매니저(슬롯/쿨다운/발동)
+    SkillManagerComp = CreateDefaultSubobject<USkillManagerComponent>(TEXT("SkillManagerComp"));
+
     // 강화 화면 단축키 기본값(에디터에서 재지정)
     static ConstructorHelpers::FObjectFinder<UInputAction> EnhanceIAFinder(
         TEXT("/Game/Input/Actions/IA_Enhance.IA_Enhance"));
@@ -186,6 +193,24 @@ void APlayerCharacter::BeginPlay()
         if (SPBarWidget)
         {
             SPBarWidget->AddToViewport(1);
+        }
+    }
+
+    // 스킬 HUD(하단 중앙 슬롯) + 시전 바 — 코드 전용 위젯, 로컬 플레이어만
+    if (IsLocallyControlled() && SkillManagerComp != nullptr)
+    {
+        SkillHUDWidget = CreateWidget<USkillHUDWidget>(PC, USkillHUDWidget::StaticClass());
+        if (SkillHUDWidget != nullptr)
+        {
+            SkillHUDWidget->InitHUD(SkillManagerComp);
+            SkillHUDWidget->AddToViewport(2);
+        }
+
+        SkillCastBarWidget = CreateWidget<USkillCastBarWidget>(PC, USkillCastBarWidget::StaticClass());
+        if (SkillCastBarWidget != nullptr)
+        {
+            SkillCastBarWidget->InitCastBar(SkillManagerComp);
+            SkillCastBarWidget->AddToViewport(2);
         }
     }
 
@@ -333,6 +358,18 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
     PlayerInputComponent->BindKey(EKeys::One,   IE_Pressed, this, &APlayerCharacter::HandleLoadoutSlot1);
     PlayerInputComponent->BindKey(EKeys::Two,   IE_Pressed, this, &APlayerCharacter::HandleLoadoutSlot2);
     PlayerInputComponent->BindKey(EKeys::Three, IE_Pressed, this, &APlayerCharacter::HandleLoadoutSlot3);
+
+    // Z/X/C → 스킬 슬롯 0/1/2 (IMC/IA 설정 없이 직접 바인딩. Q=록온·R=처형과 충돌 피함)
+    // Pressed=조준 시작(PointTarget) 또는 즉발, Released=조준 발동
+    PlayerInputComponent->BindKey(EKeys::Z, IE_Pressed,  this, &APlayerCharacter::HandleSkill1);
+    PlayerInputComponent->BindKey(EKeys::X, IE_Pressed,  this, &APlayerCharacter::HandleSkill2);
+    PlayerInputComponent->BindKey(EKeys::C, IE_Pressed,  this, &APlayerCharacter::HandleSkill3);
+    PlayerInputComponent->BindKey(EKeys::Z, IE_Released, this, &APlayerCharacter::HandleSkillReleased1);
+    PlayerInputComponent->BindKey(EKeys::X, IE_Released, this, &APlayerCharacter::HandleSkillReleased2);
+    PlayerInputComponent->BindKey(EKeys::C, IE_Released, this, &APlayerCharacter::HandleSkillReleased3);
+
+    // T → 스킬트리(슬롯 배정) 토글
+    PlayerInputComponent->BindKey(EKeys::T, IE_Pressed, this, &APlayerCharacter::ToggleSkillTree);
 }
 
 // ── 입력 핸들러 ──────────────────────────────────────────────────────────────
@@ -615,6 +652,84 @@ void APlayerCharacter::HandleParry()
 void APlayerCharacter::DebugParry()
 {
     HandleParry();
+}
+
+void APlayerCharacter::UseSkill(int32 SlotIndex)
+{
+    if (SkillManagerComp != nullptr)
+    {
+        SkillManagerComp->ActivateSlot(SlotIndex);
+    }
+}
+
+void APlayerCharacter::HandleSkill1()
+{
+    UseSkill(0);
+}
+
+void APlayerCharacter::HandleSkill2()
+{
+    UseSkill(1);
+}
+
+void APlayerCharacter::HandleSkill3()
+{
+    UseSkill(2);
+}
+
+void APlayerCharacter::HandleSkillReleased1()
+{
+    if (SkillManagerComp != nullptr)
+    {
+        SkillManagerComp->ReleaseSlot(0);
+    }
+}
+
+void APlayerCharacter::HandleSkillReleased2()
+{
+    if (SkillManagerComp != nullptr)
+    {
+        SkillManagerComp->ReleaseSlot(1);
+    }
+}
+
+void APlayerCharacter::HandleSkillReleased3()
+{
+    if (SkillManagerComp != nullptr)
+    {
+        SkillManagerComp->ReleaseSlot(2);
+    }
+}
+
+void APlayerCharacter::ToggleSkillTree()
+{
+    if (IsLocallyControlled() == false || SkillManagerComp == nullptr)
+    {
+        return;
+    }
+
+    if (bSkillTreeOpen)
+    {
+        if (SkillTreeWidget != nullptr)
+        {
+            SkillTreeWidget->RemoveFromParent();
+        }
+        bSkillTreeOpen = false;
+        SwitchToGameInput();
+        return;
+    }
+
+    if (SkillTreeWidget == nullptr)
+    {
+        SkillTreeWidget = CreateWidget<USkillTreeWidget>(Cast<APlayerController>(GetController()), USkillTreeWidget::StaticClass());
+    }
+    if (SkillTreeWidget != nullptr)
+    {
+        SkillTreeWidget->InitTree(SkillManagerComp);
+        SkillTreeWidget->AddToViewport(20);
+        bSkillTreeOpen = true;
+        SwitchToUIInput();
+    }
 }
 
 // ── 상태이상 디버그(콘솔) ────────────────────────────────────────────────────

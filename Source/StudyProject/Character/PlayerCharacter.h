@@ -14,6 +14,10 @@ class UHUDWidget;
 class UInteractionDetectorComponent;
 class UDialogueWidget;
 class ULockOnComponent;
+class USkillManagerComponent;
+class USkillHUDWidget;
+class USkillCastBarWidget;
+class USkillTreeWidget;
 
 UCLASS()
 class STUDYPROJECT_API APlayerCharacter : public ACharacterBase
@@ -28,6 +32,9 @@ public:
 
     UFUNCTION(BlueprintCallable, Category = "Components")
     ULockOnComponent* GetLockOnComponent() const { return LockOnComp; }
+
+    UFUNCTION(BlueprintCallable, Category = "Components")
+    USkillManagerComponent* GetSkillManagerComponent() const { return SkillManagerComp; }
 
     // 이동 입력 원본값(X=좌우, Y=전후). 이동이 잠긴 콤보 중에도 갱신됨(키 눌림 감지용).
     UFUNCTION(BlueprintCallable, Category = "Input")
@@ -62,6 +69,14 @@ public:
     // 콘솔 커맨드: 패리 발동(IMC 매핑 전 테스트용)
     UFUNCTION(Exec)
     void DebugParry();
+
+    // 콘솔 커맨드: 스킬 슬롯 발동(IMC 매핑 전 테스트용). UseSkill 0/1/2
+    UFUNCTION(Exec)
+    void UseSkill(int32 SlotIndex);
+
+    // 콘솔/키(T): 스킬트리(슬롯 배정) 패널 토글
+    UFUNCTION(Exec)
+    void ToggleSkillTree();
 
     // 콘솔 커맨드: 록온/최근접 적에게 상태이상 부여(테스트용)
     UFUNCTION(Exec)
@@ -215,6 +230,9 @@ protected:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
     TObjectPtr<ULockOnComponent> LockOnComp;
 
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+    TObjectPtr<USkillManagerComponent> SkillManagerComp;
+
     // ── 상태 ─────────────────────────────────────────────────────────
     UPROPERTY(BlueprintReadOnly, Category = "State")
     bool bIsSprinting = false;
@@ -254,6 +272,12 @@ private:
     void HandleFinisher(); // 처형
     void HandleDodge();
     void HandleParry();    // 저스트카운터(패리)
+    void HandleSkill1();   // 스킬 슬롯 0 (Z) — 누름
+    void HandleSkill2();   // 스킬 슬롯 1 (X)
+    void HandleSkill3();   // 스킬 슬롯 2 (C)
+    void HandleSkillReleased1();   // 뗌 — 조준 발동
+    void HandleSkillReleased2();
+    void HandleSkillReleased3();
     void HandleLockOn();   // 록온 토글
     void HandleLockOnSwitch(const FInputActionValue& Value); // 타겟 좌우 전환
 
@@ -287,6 +311,17 @@ private:
     TObjectPtr<UHUDWidget> HUDWidget             = nullptr;
     UPROPERTY()
     TObjectPtr<UUserWidget> SPBarWidget          = nullptr;
+
+    UPROPERTY()
+    TObjectPtr<USkillHUDWidget> SkillHUDWidget    = nullptr;
+
+    UPROPERTY()
+    TObjectPtr<USkillCastBarWidget> SkillCastBarWidget = nullptr;
+
+    UPROPERTY()
+    TObjectPtr<USkillTreeWidget> SkillTreeWidget = nullptr;
+
+    bool bSkillTreeOpen = false;
     UPROPERTY() 
     TObjectPtr<UUserWidget> InventoryScreenWidget = nullptr;
 
