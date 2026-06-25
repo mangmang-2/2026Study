@@ -7,6 +7,7 @@
 #include "GameFramework/Character.h"
 #include "Components/TextBlock.h"
 #include "Components/Button.h"
+#include "UI/Menu/MenuUIStyle.h"
 
 void UEnhanceWidget::NativeConstruct()
 {
@@ -22,6 +23,7 @@ void UEnhanceWidget::NativeConstruct()
     if (EnhanceButton)
     {
         EnhanceButton->OnClicked.AddDynamic(this, &UEnhanceWidget::HandleEnhanceButton);
+        EnhanceButton->SetStyle(MenuUI::ActionButtonStyle());
     }
 }
 

@@ -114,6 +114,16 @@ UGA_SkillExecutor (UCombatGameplayAbility 상속, ServerOnly)
 - 타겟팅 조준: GetGroundAimPoint를 커서 트레이스→**캐스터 발밑 평면 교차**로 변경(폰/지오메트리 안 걸림) + 지면 down-trace 스냅.
 - FlameField 지속 3→2초(사용자 요청).
 
+### UI 리스타일 (AGIS 에셋 참고)
+- AGIS(`AdvancedGridInventorySyst`) 분석: UI가 프레임 이미지가 아니라 **머티리얼(등급색 배경)+스타일 폰트** 기반. 프레임 텍스처 없음.
+- **폰트 American_Captain 가져옴**: `Content/INVENTORY/Other/Fonts/`에 경로 보존 복사(American_Captain=FontFace, American_Captain_Font=UFont). 위젯서 `LoadObject<UFont>("/Game/INVENTORY/Other/Fonts/American_Captain_Font")`로 사용.
+- 위젯 4종 코드 리스타일: `FSlateRoundedBoxBrush`(둥근 모서리+아웃라인) + 다크 네이비 팔레트 + 블루 액센트 + 폰트 + 텍스트 아웃라인. 슬롯=둥근 박스(채워지면 블루 아웃라인), 단축키=칩, 쿨다운=둥근 딤, 시전바/월드바=둥근 트랙+블루 게이지, 스킬트리=둥근 패널+행 배경+둥근 버튼(hover).
+
+### UI 캡처 노하우 + 버그수정
+- MCP는 UMG 스크린샷 불가 → **PowerShell 화면 캡처**(`System.Drawing.CopyFromScreen`, 모니터/영역 크롭)로 PIE UI를 직접 캡처해 Read. 듀얼모니터(0,0~2560 편집기). 단, PIE가 실제 가동(begin_play 후 is_in_play 확인)이어야 UI 보임.
+- 🐞 **스킬트리 행 안 보이던 버그**: `ToggleSkillTree`가 `InitTree`(RefreshList)를 `AddToViewport` 전에 호출 → RebuildWidget 미실행이라 ListBox=null로 행 생성 스킵. 수정=AddToViewport 먼저, InitTree 나중. (HUD/CastBar는 Init이 위젯 안 건드려 무관)
+- 폰트/패널 스타일 적용 확인(타이틀 "SKILLS — Z/X/C" American_Captain 폰트 렌더 OK).
+
 ### Phase 2 — 남은 폴리시(선택)
 
 ### 데모 스킬

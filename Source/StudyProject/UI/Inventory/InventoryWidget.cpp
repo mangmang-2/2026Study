@@ -13,6 +13,7 @@
 #include "Components/Button.h"
 #include "Components/PanelWidget.h"
 #include "Framework/Application/SlateApplication.h"
+#include "UI/Menu/MenuUIStyle.h"
 
 void UInventoryWidget::NativeConstruct()
 {
@@ -128,7 +129,8 @@ void UInventoryWidget::RefreshToolbarButtons()
     {
         if (B != nullptr)
         {
-            B->SetBackgroundColor(Idx == ActiveToolbarIndex ? ActiveToolbarColor : NormalToolbarColor);
+            // 디폴트 회색 버튼 대신 평면 칩 스타일(투명 + 활성 시 따뜻한 하이라이트)
+            B->SetStyle(MenuUI::ChipButtonStyle(Idx == ActiveToolbarIndex));
         }
     };
     // 마지막에 누른 버튼 하나만 강조(필터/정렬 통틀어)

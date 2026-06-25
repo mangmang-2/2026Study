@@ -25,7 +25,7 @@ TSharedRef<SWidget> UBossHealthBarWidget::RebuildWidget()
         Box->AddChildToVerticalBox(NameText);
 
         HPBar = WidgetTree->ConstructWidget<UProgressBar>(UProgressBar::StaticClass(), TEXT("HPBar"));
-        HPBar->SetFillColorAndOpacity(FLinearColor(0.8f, 0.05f, 0.05f));
+        HPBar->SetFillColorAndOpacity(FLinearColor(0.62f, 0.10f, 0.12f)); // 톤다운 크림슨
         if (UVerticalBoxSlot* BarSlot = Box->AddChildToVerticalBox(HPBar))
         {
             BarSlot->SetPadding(FMargin(0.f, 4.f, 0.f, 0.f));

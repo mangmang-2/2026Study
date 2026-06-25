@@ -36,6 +36,31 @@ enum class ESkillExecutionMode : uint8
     Sequential   UMETA(DisplayName = "Sequential (순차)"),
 };
 
+/** 스킬 등급 — UI 색상 구분 */
+UENUM(BlueprintType)
+enum class ESkillRarity : uint8
+{
+    Common    UMETA(DisplayName = "Common (일반)"),
+    Uncommon  UMETA(DisplayName = "Uncommon (고급)"),
+    Rare      UMETA(DisplayName = "Rare (희귀)"),
+    Epic      UMETA(DisplayName = "Epic (영웅)"),
+    Legendary UMETA(DisplayName = "Legendary (전설)"),
+};
+
+/** 등급별 강조색 — AGIS(AdvancedGridInventorySystem) 팔레트와 동일 톤 */
+inline FLinearColor SkillRarityColor(ESkillRarity Rarity)
+{
+    switch (Rarity)
+    {
+    case ESkillRarity::Uncommon:  return FLinearColor(0.27f, 1.00f, 0.03f, 1.0f);  // AGIS Green
+    case ESkillRarity::Rare:      return FLinearColor(0.00f, 0.30f, 1.00f, 1.0f);  // AGIS Blue
+    case ESkillRarity::Epic:      return FLinearColor(0.74f, 0.00f, 1.00f, 1.0f);  // AGIS Purple
+    case ESkillRarity::Legendary: return FLinearColor(1.00f, 0.43f, 0.00f, 1.0f);  // AGIS Yellow/Gold
+    case ESkillRarity::Common:
+    default:                      return FLinearColor(0.62f, 0.65f, 0.70f, 1.0f);  // 중립 회색
+    }
+}
+
 /**
  * 스킬 1회 실행의 공유 컨텍스트.
  * 판정은 한 번만 하고, 모든 EffectModule이 같은 HitActors를 순서대로 처리한다.

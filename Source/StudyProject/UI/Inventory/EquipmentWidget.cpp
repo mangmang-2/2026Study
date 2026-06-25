@@ -7,6 +7,7 @@
 #include "GameFramework/Character.h"
 #include "Components/TextBlock.h"
 #include "Components/Button.h"
+#include "UI/Menu/MenuUIStyle.h"
 
 void UEquipmentWidget::NativeConstruct()
 {
@@ -196,8 +197,8 @@ void UEquipmentWidget::RefreshLoadoutButtons()
         const bool bActive = (i == Active);
         if (Btns[i] != nullptr)
         {
-            // 현재 선택 세트만 강조
-            Btns[i]->SetBackgroundColor(bActive ? ActiveLoadoutColor : NormalLoadoutColor);
+            // 디폴트 회색 버튼 대신 평면 칩 스타일(투명 + 활성 시 따뜻한 하이라이트)
+            Btns[i]->SetStyle(MenuUI::ChipButtonStyle(bActive));
         }
         if (Texts[i] != nullptr)
         {

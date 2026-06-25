@@ -30,6 +30,7 @@
 #include "UI/HUD/HUDWidget.h"
 #include "UI/Dialogue/DialogueWidget.h"
 #include "UI/Shop/ShopScreenWidget.h"
+#include "UI/Menu/GameMenuShellWidget.h"
 #include "Blueprint/UserWidget.h"
 #include "Components/Button.h"
 #include "Kismet/GameplayStatics.h"
@@ -186,7 +187,7 @@ void APlayerCharacter::BeginPlay()
         }
     }
 
-    // SP/HP 바 위젯
+    // SP/HP 바 위젯(WBP_SPBar) — 실제 HP/SP를 갱신하는 체력바. 스킬 HUD와 좌우 폭(X28,360) 정렬됨.
     if (IsLocallyControlled() && SPBarWidgetClass)
     {
         SPBarWidget = CreateWidget<UUserWidget>(PC, SPBarWidgetClass);
@@ -725,8 +726,10 @@ void APlayerCharacter::ToggleSkillTree()
     }
     if (SkillTreeWidget != nullptr)
     {
-        SkillTreeWidget->InitTree(SkillManagerComp);
+        // AddToViewport가 RebuildWidget(위젯 트리 생성)을 먼저 돌려야 InitTree의
+        // RefreshList가 ListBox에 행을 채울 수 있다(순서 중요).
         SkillTreeWidget->AddToViewport(20);
+        SkillTreeWidget->InitTree(SkillManagerComp);
         bSkillTreeOpen = true;
         SwitchToUIInput();
     }
@@ -929,41 +932,45 @@ void APlayerCharacter::CloseExclusiveScreens()
     }
 }
 
-void APlayerCharacter::OpenInventory()
+// 인벤/장비/강화는 모두 통합 탭 셸(UGameMenuShellWidget)을 사용. 탭만 다르게 연다.
+void APlayerCharacter::OpenMenu(int32 Tab)
 {
-    if (bInventoryOpen) return;
     APlayerController* PC = Cast<APlayerController>(GetController());
     if (PC == nullptr) return;
 
-    CloseExclusiveScreens();
+    // 셸 외 전체화면 패널(상점/일시정지)은 닫음. 거래는 네트워크 흐름이라 제외.
+    if (bShopOpen)      CloseShop();
+    if (bPauseMenuOpen) ClosePauseMenu();
 
-    if (InventoryScreenWidget == nullptr && InventoryScreenWidgetClass)
+    if (MenuShell == nullptr)
     {
-        InventoryScreenWidget = CreateWidget<UUserWidget>(PC, InventoryScreenWidgetClass);
+        MenuShell = CreateWidget<UGameMenuShellWidget>(PC, UGameMenuShellWidget::StaticClass());
     }
-    if (InventoryScreenWidget)
+    if (MenuShell == nullptr) return;
+
+    if (MenuShell->IsInViewport() == false)
     {
-        InventoryScreenWidget->AddToViewport();
-        if (UButton* CloseB = Cast<UButton>(InventoryScreenWidget->GetWidgetFromName(TEXT("CloseBtn"))))
-            CloseB->OnClicked.AddUniqueDynamic(this, &APlayerCharacter::CloseInventory);
-        bInventoryOpen = true;
-        SwitchToUIInput();
+        MenuShell->AddToViewport(7);
     }
+    MenuShell->OnCloseRequested.AddUniqueDynamic(this, &APlayerCharacter::CloseMenu);
+    MenuShell->InitShell(Tab);   // 콘텐츠 생성·바인딩 + 탭 선택 (AddToViewport 이후라 위젯트리 준비됨)
+
+    bInventoryOpen = true;       // 셸 열림 마스터 플래그
+    SwitchToUIInput();
+    MenuShell->SetKeyboardFocus();
 }
 
-void APlayerCharacter::CloseInventory()
+void APlayerCharacter::CloseMenu()
 {
     if (bInventoryOpen == false) return;
 
-    // 인벤 정리(아이템 이동 등) 디스크 반영. 장비 세트 저장은 장착/해제 시 자동 처리됨.
     if (HasAuthority())
     {
         SaveCharacter();
     }
-
-    if (InventoryScreenWidget)
+    if (MenuShell)
     {
-        InventoryScreenWidget->RemoveFromParent();
+        MenuShell->RemoveFromParent();
     }
     bInventoryOpen = false;
     if (IsAnyScreenOpen() == false)
@@ -972,41 +979,10 @@ void APlayerCharacter::CloseInventory()
     }
 }
 
-void APlayerCharacter::OpenEnhance()
-{
-    if (bEnhanceOpen) return;
-    APlayerController* PC = Cast<APlayerController>(GetController());
-    if (PC == nullptr) return;
-
-    CloseExclusiveScreens();
-
-    if (EnhanceScreenWidget == nullptr && EnhanceScreenWidgetClass)
-    {
-        EnhanceScreenWidget = CreateWidget<UUserWidget>(PC, EnhanceScreenWidgetClass);
-    }
-    if (EnhanceScreenWidget)
-    {
-        EnhanceScreenWidget->AddToViewport();
-        if (UButton* CloseB = Cast<UButton>(EnhanceScreenWidget->GetWidgetFromName(TEXT("CloseBtn"))))
-            CloseB->OnClicked.AddUniqueDynamic(this, &APlayerCharacter::CloseEnhance);
-        bEnhanceOpen = true;
-        SwitchToUIInput();
-    }
-}
-
-void APlayerCharacter::CloseEnhance()
-{
-    if (bEnhanceOpen == false) return;
-    if (EnhanceScreenWidget)
-    {
-        EnhanceScreenWidget->RemoveFromParent();
-    }
-    bEnhanceOpen = false;
-    if (IsAnyScreenOpen() == false)
-    {
-        SwitchToGameInput();
-    }
-}
+void APlayerCharacter::OpenInventory() { OpenMenu(UGameMenuShellWidget::TAB_Inventory); }
+void APlayerCharacter::CloseInventory() { CloseMenu(); }
+void APlayerCharacter::OpenEnhance() { OpenMenu(UGameMenuShellWidget::TAB_Enhance); }
+void APlayerCharacter::CloseEnhance() { CloseMenu(); }
 
 void APlayerCharacter::OpenEnhanceScreen()
 {
@@ -1260,6 +1236,8 @@ void APlayerCharacter::SwitchToUIInput()
     PC->SetShowMouseCursor(true);
     PC->SetInputMode(FInputModeGameAndUI());
 
+    SetGameplayHudVisible(false);   // 전체화면 UI 진입 → 게임플레이 HUD 숨김
+
     // DefaultMappingContext 유지 — 제거하면 UI 닫은 뒤 토글 키가 죽어 재오픈 불가
     if (UEnhancedInputLocalPlayerSubsystem* Subsystem =
         ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PC->GetLocalPlayer()))
@@ -1279,6 +1257,8 @@ void APlayerCharacter::SwitchToGameInput()
     PC->SetShowMouseCursor(false);
     PC->SetInputMode(FInputModeGameOnly());
 
+    SetGameplayHudVisible(true);   // 게임플레이 복귀 → HUD 복원
+
     if (UEnhancedInputLocalPlayerSubsystem* Subsystem =
         ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PC->GetLocalPlayer()))
     {
@@ -1291,6 +1271,20 @@ void APlayerCharacter::SwitchToGameInput()
             Subsystem->AddMappingContext(DefaultMappingContext, 0);
         }
     }
+}
+
+void APlayerCharacter::SetGameplayHudVisible(bool bVisible)
+{
+    // 패시브 HUD(체력바/스킬/캐스트바)는 입력을 막지 않게 SelfHitTestInvisible로 복원.
+    const ESlateVisibility VPassive     = bVisible ? ESlateVisibility::SelfHitTestInvisible : ESlateVisibility::Collapsed;
+    // 적 소환 위젯은 버튼 클릭이 필요하므로 Visible로 복원.
+    const ESlateVisibility VInteractive = bVisible ? ESlateVisibility::Visible : ESlateVisibility::Collapsed;
+
+    if (HUDWidget)          HUDWidget->SetVisibility(VPassive);
+    if (SPBarWidget)        SPBarWidget->SetVisibility(VPassive);
+    if (SkillHUDWidget)     SkillHUDWidget->SetVisibility(VPassive);
+    if (SkillCastBarWidget) SkillCastBarWidget->SetVisibility(VPassive);
+    if (SpawnerWidget)      SpawnerWidget->SetVisibility(VInteractive);
 }
 
 void APlayerCharacter::StartDialogue(int32 InDialogueID, AActor* Interactor)

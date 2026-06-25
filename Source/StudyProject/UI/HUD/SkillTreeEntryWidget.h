@@ -38,8 +38,14 @@ private:
 
     UButton* MakeSlotButton(const FString& Label);
 
+    // NameText/CachedSkill 준비되면 이름 적용(InitEntry·RebuildWidget 순서 무관 대응)
+    void ApplyName();
+
     UPROPERTY()
     TObjectPtr<UTextBlock> NameText = nullptr;
+
+    UPROPERTY()
+    TObjectPtr<USkillDefinition> CachedSkill = nullptr;
 
     int32 PoolIndex = -1;
 };

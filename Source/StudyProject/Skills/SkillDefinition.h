@@ -32,6 +32,10 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Display")
     TObjectPtr<UTexture2D> Icon;
 
+    // 등급 — HUD/스킬트리 색상 구분
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Display")
+    ESkillRarity Rarity = ESkillRarity::Common;
+
     // ── 전달 방식 ───────────────────────────────────────────────────
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Delivery")
     ESkillTargetingMode TargetingMode = ESkillTargetingMode::PointTarget;

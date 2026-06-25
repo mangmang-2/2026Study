@@ -293,8 +293,13 @@ private:
     void OpenPauseMenu();
     void ClosePauseMenu();
     void OpenEnhance();
-    UFUNCTION() 
+    UFUNCTION()
     void CloseEnhance();
+    // 통합 탭 메뉴(인벤/장비/강화 한 창). 인벤/강화 열기는 모두 이 셸을 사용.
+    UFUNCTION(BlueprintCallable, Category = "UI")
+    void OpenMenu(int32 Tab);
+    UFUNCTION()
+    void CloseMenu();
     void OpenShop(int32 ShopID);
     UFUNCTION() 
     void CloseShop();
@@ -306,6 +311,10 @@ private:
     void HandleTradeResult(bool bSuccess);
     void SwitchToUIInput();
     void SwitchToGameInput();
+
+    // 상황별 UI 셋 관리: 전체화면 UI(인벤/상점/거래/강화/일시정지)가 열리면
+    // 게임플레이 HUD(체력바/스킬HUD/캐스트바/적소환 버튼)를 숨기고, 닫으면 복원.
+    void SetGameplayHudVisible(bool bVisible);
 
     UPROPERTY()
     TObjectPtr<UHUDWidget> HUDWidget             = nullptr;
@@ -322,7 +331,12 @@ private:
     TObjectPtr<USkillTreeWidget> SkillTreeWidget = nullptr;
 
     bool bSkillTreeOpen = false;
-    UPROPERTY() 
+
+    // 통합 탭 메뉴 셸 (인벤/장비/강화)
+    UPROPERTY()
+    TObjectPtr<class UGameMenuShellWidget> MenuShell = nullptr;
+
+    UPROPERTY()
     TObjectPtr<UUserWidget> InventoryScreenWidget = nullptr;
 
     UPROPERTY() 
