@@ -6,6 +6,7 @@
 #include "GA_SkillExecutor.generated.h"
 
 class USkillDefinition;
+class UEffectModule;
 
 /**
  * 데이터 기반 스킬 실행 어빌리티.
@@ -23,10 +24,12 @@ class STUDYPROJECT_API UGA_SkillExecutor : public UCombatGameplayAbility
 public:
     UGA_SkillExecutor();
 
-    // 한 지점에서 즉발 실행(판정 + VFX + 모듈 동시). 투사체 충돌 시 등 외부에서 호출.
+    // 한 지점에서 즉발 실행(판정 + VFX + 모듈 동시). 투사체 충돌·낙하체 착탄 등 외부에서 호출.
+    // OverrideRadius>0이면 Skill->Radius 대신 그 값으로 판정/VFX 스케일(낙하체 개별 반경용).
     static void ExecuteSkillBurstAt(UWorld* World, USkillDefinition* Skill,
         class UAbilitySystemComponent* InstigatorASC, AActor* Instigator,
-        UGameplayAbility* SourceAbility, const FVector& Origin, const FVector& Direction);
+        UGameplayAbility* SourceAbility, const FVector& Origin, const FVector& Direction,
+        float OverrideRadius = -1.f);
 
     // 후보가 유효 타겟인지(적/사망/래그돌 필터) — 정적 버전
     static bool IsHostileValidTarget(AActor* Candidate, bool bInstigatorIsEnemy);
@@ -54,6 +57,13 @@ private:
     // 지속(필드) 1틱 — 매 틱 재판정 + VFX 펄스 + 모듈 동시 실행
     void FieldTick();
 
+    // 낙하 폭격(Rain) — RainDuration 동안 RainStrikeCount개를 시간 분산해 떨군다
+    void StartRain();
+    void RainStrikeTick();
+
+    // 낙하체 1개가 떨어질 지면 지점 — RainEnemyBias 확률로 범위 내 적 위치, 아니면 무작위
+    FVector PickRainStrikePoint() const;
+
     // 착탄 VFX 멀티캐스트(범위에 비례해 스케일)
     void SpawnImpactVFX();
 
@@ -66,9 +76,13 @@ private:
     // 한 후보가 유효 타겟인지(적/사망/래그돌 필터)
     bool IsValidTarget(AActor* Candidate, bool bAvatarIsEnemy) const;
 
-    // 모듈 실행(동시=즉시 전부, 순차=타이머로 하나씩)
+    // 모듈 실행 — 각 모듈을 StartDelay에 맞춰 발동(0이면 즉시)
     void RunModulesSimultaneous();
-    void RunNextSequentialModule();
+
+    // 모듈을 각자의 StartDelay만큼 지연시켜 실행(0이면 즉시). 시간차 발동.
+    // 지연 타이머는 World 타이머에 올라가며 Ctx 복사본을 캡처하므로 GA 수명과 독립.
+    static void ScheduleModules(UWorld* World,
+        const TArray<TObjectPtr<UEffectModule>>& Modules, const FSkillExecutionContext& Ctx);
 
     UPROPERTY()
     TObjectPtr<USkillDefinition> ActiveSkill = nullptr;
@@ -76,16 +90,17 @@ private:
     FVector PendingOrigin = FVector::ZeroVector;
     FVector PendingDirection = FVector::ForwardVector;
 
-    // Detonate에서 채워 모듈 실행에 공유(순차 타이머 사이 GC 추적)
+    // Detonate에서 채워 모듈 실행에 공유(지연 타이머 사이 GC 추적)
     UPROPERTY()
     FSkillExecutionContext ExecContext;
-
-    int32 SequentialIndex = 0;
 
     // 지속 필드 경과 시간
     float ChannelElapsed = 0.f;
 
+    // 남은 낙하체 수
+    int32 RainStrikesRemaining = 0;
+
     FTimerHandle CastTimer;
-    FTimerHandle SequentialTimer;
     FTimerHandle FieldTimer;
+    FTimerHandle RainTimer;
 };

@@ -80,6 +80,14 @@ void UGA_SkillExecutor::ActivateAbility(
         }
     }
 
+    if (ActiveSkill->CastVFX != nullptr)
+    {
+        if (ACharacterBase* CharBase = Cast<ACharacterBase>(Avatar))
+        {
+            CharBase->Multicast_SpawnSkillVFX(ActiveSkill->CastVFX, Avatar->GetActorLocation(), PendingDirection, 1.f);
+        }
+    }
+
     if (ActiveSkill->CastTime > 0.f)
     {
         World->GetTimerManager().SetTimer(CastTimer, this, &UGA_SkillExecutor::Detonate, ActiveSkill->CastTime, false);
@@ -116,6 +124,13 @@ void UGA_SkillExecutor::Detonate()
             }
         }
         EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
+        return;
+    }
+
+    // 낙하 폭격형 — RainDuration 동안 여러 낙하체를 시간 분산해 떨군다
+    if (ActiveSkill->DeliveryType == ESkillDeliveryType::Rain)
+    {
+        StartRain();
         return;
     }
 
@@ -182,15 +197,9 @@ void UGA_SkillExecutor::RunOneShot()
         return;
     }
 
-    if (ActiveSkill->ExecutionMode == ESkillExecutionMode::Simultaneous)
-    {
-        RunModulesSimultaneous();
-        EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
-        return;
-    }
-
-    SequentialIndex = 0;
-    RunNextSequentialModule();
+    // 각 모듈을 제 StartDelay에 발동(0이면 같이, 다르면 시간차)
+    ScheduleModules(GetWorld(), ActiveSkill->EffectModules, ExecContext);
+    EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
 }
 
 void UGA_SkillExecutor::FieldTick()
@@ -218,6 +227,132 @@ void UGA_SkillExecutor::FieldTick()
     }
 }
 
+void UGA_SkillExecutor::StartRain()
+{
+    if (ActiveSkill == nullptr)
+    {
+        EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
+        return;
+    }
+
+    RainStrikesRemaining = FMath::Max(1, ActiveSkill->RainStrikeCount);
+
+    // 동시 낙하 — 한 번에 전부(마지막 발에서 RainStrikeTick이 EndAbility)
+    if (ActiveSkill->RainDuration <= 0.05f)
+    {
+        while (RainStrikesRemaining > 0)
+        {
+            RainStrikeTick();
+        }
+        return;
+    }
+
+    if (UWorld* World = GetWorld())
+    {
+        const float Interval = FMath::Max(0.03f, ActiveSkill->RainDuration / FMath::Max(1, ActiveSkill->RainStrikeCount));
+        World->GetTimerManager().SetTimer(RainTimer, this, &UGA_SkillExecutor::RainStrikeTick, Interval, true);
+    }
+
+    RainStrikeTick();   // 첫 발 즉시
+}
+
+void UGA_SkillExecutor::RainStrikeTick()
+{
+    ACharacter* Avatar = Cast<ACharacter>(GetAvatarActorFromActorInfo());
+    UWorld* World = (Avatar != nullptr) ? Avatar->GetWorld() : nullptr;
+    if (Avatar == nullptr || World == nullptr || ActiveSkill == nullptr)
+    {
+        if (World != nullptr)
+        {
+            World->GetTimerManager().ClearTimer(RainTimer);
+        }
+        EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
+        return;
+    }
+
+    const FVector StrikePoint = PickRainStrikePoint();
+    ExecuteSkillBurstAt(World, ActiveSkill, GetAbilitySystemComponentFromActorInfo(), Avatar, this,
+        StrikePoint, FVector::DownVector, ActiveSkill->RainStrikeRadius);
+
+    RainStrikesRemaining--;
+    if (RainStrikesRemaining <= 0)
+    {
+        World->GetTimerManager().ClearTimer(RainTimer);
+        EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
+    }
+}
+
+FVector UGA_SkillExecutor::PickRainStrikePoint() const
+{
+    ACharacter* Avatar = Cast<ACharacter>(GetAvatarActorFromActorInfo());
+    UWorld* World = (Avatar != nullptr) ? Avatar->GetWorld() : nullptr;
+    if (Avatar == nullptr || World == nullptr || ActiveSkill == nullptr)
+    {
+        return PendingOrigin;
+    }
+
+    const float AreaRadius = FMath::Max(50.f, ActiveSkill->Radius);
+    FVector Target = PendingOrigin;
+    bool bResolved = false;
+
+    // 범위 내 적 위치 가중
+    if (FMath::FRand() < ActiveSkill->RainEnemyBias)
+    {
+        const bool bAvatarIsEnemy = Avatar->IsA(AEnemyCharacter::StaticClass());
+
+        TArray<TEnumAsByte<EObjectTypeQuery>> ObjectTypes;
+        ObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECC_Pawn));
+        TArray<AActor*> ToIgnore;
+        ToIgnore.Add(Avatar);
+        TArray<AActor*> Overlaps;
+        UKismetSystemLibrary::SphereOverlapActors(World, PendingOrigin, AreaRadius, ObjectTypes,
+            AActor::StaticClass(), ToIgnore, Overlaps);
+
+        TArray<AActor*> Enemies;
+        for (AActor* Cand : Overlaps)
+        {
+            if (IsHostileValidTarget(Cand, bAvatarIsEnemy))
+            {
+                Enemies.Add(Cand);
+            }
+        }
+
+        if (Enemies.Num() > 0)
+        {
+            AActor* Pick = Enemies[FMath::RandRange(0, Enemies.Num() - 1)];
+            const float Jitter = FMath::Min(150.f, ActiveSkill->RainStrikeRadius);
+            Target = Pick->GetActorLocation();
+            Target += FVector(FMath::FRandRange(-Jitter, Jitter), FMath::FRandRange(-Jitter, Jitter), 0.f);
+            bResolved = true;
+        }
+    }
+
+    // 적이 없거나 무작위 분기 — 분포 디스크 내 균등 무작위
+    if (bResolved == false)
+    {
+        const float Angle = FMath::FRandRange(0.f, 2.f * PI);
+        const float Dist = AreaRadius * FMath::Sqrt(FMath::FRand());
+        Target = PendingOrigin + FVector(FMath::Cos(Angle) * Dist, FMath::Sin(Angle) * Dist, 0.f);
+    }
+
+    // 지면 투영(위→아래 트레이스)
+    const FVector TraceStart = Target + FVector(0.f, 0.f, 1200.f);
+    const FVector TraceEnd = Target - FVector(0.f, 0.f, 2000.f);
+    FHitResult GroundHit;
+    FCollisionQueryParams Params;
+    Params.AddIgnoredActor(Avatar);
+    if (World->LineTraceSingleByChannel(GroundHit, TraceStart, TraceEnd, ECC_Visibility, Params))
+    {
+        Target.Z = GroundHit.ImpactPoint.Z;
+    }
+    else
+    {
+        Target.Z = PendingOrigin.Z;
+    }
+
+    return Target;
+}
+
 void UGA_SkillExecutor::RunModulesSimultaneous()
 {
     if (ActiveSkill == nullptr)
@@ -225,41 +360,44 @@ void UGA_SkillExecutor::RunModulesSimultaneous()
         return;
     }
 
-    for (UEffectModule* Module : ActiveSkill->EffectModules)
-    {
-        if (Module != nullptr)
-        {
-            Module->Execute(ExecContext);
-        }
-    }
+    ScheduleModules(GetWorld(), ActiveSkill->EffectModules, ExecContext);
 }
 
-void UGA_SkillExecutor::RunNextSequentialModule()
+void UGA_SkillExecutor::ScheduleModules(UWorld* World,
+    const TArray<TObjectPtr<UEffectModule>>& Modules, const FSkillExecutionContext& Ctx)
 {
-    if (ActiveSkill == nullptr || SequentialIndex >= ActiveSkill->EffectModules.Num())
-    {
-        EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
-        return;
-    }
+    AActor* TimerOwner = Ctx.Instigator.Get();
 
-    UEffectModule* Module = ActiveSkill->EffectModules[SequentialIndex];
-    SequentialIndex++;
-
-    if (Module != nullptr)
+    for (UEffectModule* Module : Modules)
     {
-        Module->Execute(ExecContext);
-    }
+        if (Module == nullptr)
+        {
+            continue;
+        }
 
-    if (SequentialIndex >= ActiveSkill->EffectModules.Num())
-    {
-        EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
-        return;
-    }
+        const float Delay = FMath::Max(0.f, Module->StartDelay);
 
-    if (UWorld* World = GetWorld())
-    {
-        const float Step = FMath::Max(0.01f, ActiveSkill->SequentialStep);
-        World->GetTimerManager().SetTimer(SequentialTimer, this, &UGA_SkillExecutor::RunNextSequentialModule, Step, false);
+        // 즉발(또는 타이머를 걸 수 없는 경우)
+        if (Delay <= 0.f || World == nullptr || TimerOwner == nullptr)
+        {
+            Module->Execute(Ctx);
+            continue;
+        }
+
+        // 지연 발동 — Ctx 복사본을 캡처해 GA 수명과 독립적으로 실행, Instigator에 약결속
+        TWeakObjectPtr<UEffectModule> WeakModule(Module);
+        FSkillExecutionContext CtxCopy = Ctx;
+        FTimerHandle Handle;
+        World->GetTimerManager().SetTimer(Handle,
+            FTimerDelegate::CreateWeakLambda(TimerOwner,
+                [WeakModule, CtxCopy]()
+                {
+                    if (UEffectModule* M = WeakModule.Get())
+                    {
+                        M->Execute(CtxCopy);
+                    }
+                }),
+            Delay, false);
     }
 }
 
@@ -304,12 +442,15 @@ bool UGA_SkillExecutor::IsValidTarget(AActor* Candidate, bool bAvatarIsEnemy) co
 
 void UGA_SkillExecutor::ExecuteSkillBurstAt(UWorld* World, USkillDefinition* Skill,
     UAbilitySystemComponent* InstigatorASC, AActor* Instigator,
-    UGameplayAbility* SourceAbility, const FVector& Origin, const FVector& Direction)
+    UGameplayAbility* SourceAbility, const FVector& Origin, const FVector& Direction,
+    float OverrideRadius)
 {
     if (World == nullptr || Skill == nullptr)
     {
         return;
     }
+
+    const float EffectiveRadius = (OverrideRadius > 0.f) ? OverrideRadius : Skill->Radius;
 
     FSkillExecutionContext Ctx;
     Ctx.Instigator = Instigator;
@@ -328,7 +469,7 @@ void UGA_SkillExecutor::ExecuteSkillBurstAt(UWorld* World, USkillDefinition* Ski
         ToIgnore.Add(Instigator);
     }
     TArray<AActor*> Overlaps;
-    UKismetSystemLibrary::SphereOverlapActors(World, Origin, Skill->Radius, ObjectTypes,
+    UKismetSystemLibrary::SphereOverlapActors(World, Origin, EffectiveRadius, ObjectTypes,
         AActor::StaticClass(), ToIgnore, Overlaps);
 
     for (AActor* Cand : Overlaps)
@@ -347,19 +488,14 @@ void UGA_SkillExecutor::ExecuteSkillBurstAt(UWorld* World, USkillDefinition* Ski
             float Scale = Skill->ImpactVFXScale;
             if (Skill->VFXReferenceRadius > 0.f)
             {
-                Scale *= Skill->Radius / Skill->VFXReferenceRadius;
+                Scale *= EffectiveRadius / Skill->VFXReferenceRadius;
             }
             CharBase->Multicast_SpawnSkillVFX(Skill->ImpactVFX, Origin, Direction, Scale);
         }
     }
 
-    for (UEffectModule* Module : Skill->EffectModules)
-    {
-        if (Module != nullptr)
-        {
-            Module->Execute(Ctx);
-        }
-    }
+    // 각 모듈을 제 StartDelay에 발동(낙하체 1발 안에서도 시간차 가능)
+    ScheduleModules(World, Skill->EffectModules, Ctx);
 }
 
 void UGA_SkillExecutor::CollectTargets(FSkillExecutionContext& Ctx) const
@@ -451,8 +587,8 @@ void UGA_SkillExecutor::EndAbility(
     if (UWorld* World = GetWorld())
     {
         World->GetTimerManager().ClearTimer(CastTimer);
-        World->GetTimerManager().ClearTimer(SequentialTimer);
         World->GetTimerManager().ClearTimer(FieldTimer);
+        World->GetTimerManager().ClearTimer(RainTimer);
     }
 
     Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);

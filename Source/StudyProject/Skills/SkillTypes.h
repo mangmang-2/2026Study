@@ -26,14 +26,7 @@ enum class ESkillDeliveryType : uint8
     Beam        UMETA(DisplayName = "Beam (직선 관통)"),
     Melee       UMETA(DisplayName = "Melee (근접 즉시)"),
     Dash        UMETA(DisplayName = "Dash (돌진 판정)"),
-};
-
-/** 모듈 실행 순서 */
-UENUM(BlueprintType)
-enum class ESkillExecutionMode : uint8
-{
-    Simultaneous UMETA(DisplayName = "Simultaneous (동시)"),
-    Sequential   UMETA(DisplayName = "Sequential (순차)"),
+    Rain        UMETA(DisplayName = "Rain (낙하 폭격/메테오)"),
 };
 
 /** 스킬 등급 — UI 색상 구분 */

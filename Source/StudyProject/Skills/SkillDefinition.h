@@ -72,19 +72,34 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Shape", meta = (ClampMin = "1", ClampMax = "180"))
     float ConeHalfAngle = 45.f;
 
+    // ── 낙하 폭격(DeliveryType=Rain) ─────────────────────────────────
+    // 떨어지는 낙하체 개수. 분포 범위는 Radius, 개별 착탄 반경은 RainStrikeRadius.
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Rain", meta = (ClampMin = "1"))
+    int32 RainStrikeCount = 8;
+
+    // 전체 낙하 지속시간(초). 이 시간에 걸쳐 StrikeCount개가 떨어진다. 0이면 동시 낙하.
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Rain", meta = (ClampMin = "0"))
+    float RainDuration = 3.f;
+
+    // 낙하체 1개의 착탄(폭발) 반경
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Rain", meta = (ClampMin = "1"))
+    float RainStrikeRadius = 200.f;
+
+    // 적 위치로 떨어지는 비율(0=완전 무작위, 1=가능한 한 범위 내 적 위치)
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Rain", meta = (ClampMin = "0", ClampMax = "1"))
+    float RainEnemyBias = 0.7f;
+
     // ── 모듈 조합 ───────────────────────────────────────────────────
-    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Modules")
-    ESkillExecutionMode ExecutionMode = ESkillExecutionMode::Sequential;
-
-    // Sequential일 때 모듈 사이 간격(초)
-    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Modules", meta = (EditCondition = "ExecutionMode == ESkillExecutionMode::Sequential"))
-    float SequentialStep = 0.15f;
-
+    // 각 모듈의 StartDelay(초)로 발동 시점을 정한다. 0이면 같이, 다르게 주면 시간차.
     UPROPERTY(EditAnywhere, Instanced, BlueprintReadOnly, Category = "Modules")
     TArray<TObjectPtr<UEffectModule>> EffectModules;
 
     // ── VFX / 연출 ──────────────────────────────────────────────────
-    // 착탄/폭발 VFX (AOE 중심·투사체 충돌 지점)
+    // 시전 시 시전자에게 재생 (팩의 Owner_Cast 류)
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "VFX")
+    TObjectPtr<UNiagaraSystem> CastVFX;
+
+    // 착탄/폭발 VFX (AOE 중심·투사체 충돌 지점·낙하체 착탄)
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "VFX")
     TObjectPtr<UNiagaraSystem> ImpactVFX;
 
@@ -114,4 +129,28 @@ public:
     // 타겟팅 프리뷰 데칼(PointTarget 홀드 시 바닥 표시)
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "VFX")
     TObjectPtr<UMaterialInterface> RangeDecalMaterial;
+
+#if WITH_EDITOR
+    // ── Skill Forge 액션(에디터 Details 패널 버튼) ───────────────────
+    UFUNCTION(CallInEditor, Category = "Skill Forge|Add Module")
+    void AddDamageModule();
+
+    UFUNCTION(CallInEditor, Category = "Skill Forge|Add Module")
+    void AddPullModule();
+
+    UFUNCTION(CallInEditor, Category = "Skill Forge|Add Module")
+    void AddPushModule();
+
+    UFUNCTION(CallInEditor, Category = "Skill Forge|Add Module")
+    void AddStunModule();
+
+    UFUNCTION(CallInEditor, Category = "Skill Forge|Add Module")
+    void AddSlowModule();
+
+    UFUNCTION(CallInEditor, Category = "Skill Forge")
+    void ClearModules();
+
+    UFUNCTION(CallInEditor, Category = "Skill Forge")
+    void DuplicateThisSkill();
+#endif
 };

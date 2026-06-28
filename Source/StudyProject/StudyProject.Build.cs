@@ -36,7 +36,13 @@ public class StudyProject : ModuleRules
 		{
 			PublicDependencyModuleNames.AddRange(new string[] {
 				"UnrealEd",
-				"AssetRegistry"
+				"AssetRegistry",
+				"AssetTools",
+				"EditorScriptingUtilities",
+				"Blutility",
+				"UMGEditor",
+				"ScriptableEditorWidgets",
+				"LevelEditor"
 			});
 		}
 

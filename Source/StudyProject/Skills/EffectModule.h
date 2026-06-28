@@ -18,6 +18,11 @@ class STUDYPROJECT_API UEffectModule : public UObject
     GENERATED_BODY()
 
 public:
+    // 시작 지연(초). 0이면 즉발, >0이면 판정(폭발/착탄) 후 이 시간 뒤에 Execute.
+    // 모듈마다 다르게 주면 한 번에 안 터지고 시간차로 발생한다.
+    UPROPERTY(EditAnywhere, Category = "Timing", meta = (ClampMin = "0", DisplayPriority = "0"))
+    float StartDelay = 0.f;
+
     // 판정된 HitActors에 효과를 적용한다(서버 권위).
     virtual void Execute(const FSkillExecutionContext& Ctx);
 
