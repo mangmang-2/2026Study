@@ -11,6 +11,10 @@
 #include "Components/PanelWidget.h"
 #include "Components/HorizontalBoxSlot.h"
 #include "Blueprint/WidgetTree.h"
+#include "Editor.h"
+#include "EngineUtils.h"
+#include "GameFramework/Actor.h"
+#include "Engine/World.h"
 
 void UEUW_SkillForge::EnsureDetailsViews()
 {
@@ -307,7 +311,54 @@ void UEUW_SkillForge::OnPreviewClicked()
 
 void UEUW_SkillForge::OnStopClicked()
 {
+    // 초기화: 진행 중 프리뷰(액터/데모큐브/VFX) 제거 + 시전자/타격 큐브를 원위치로
     USkillForgeLibrary::StopPreview();
+
+    if (GEditor == nullptr)
+    {
+        return;
+    }
+    UWorld* World = GEditor->GetEditorWorldContext().World();
+    if (World == nullptr)
+    {
+        return;
+    }
+
+    TArray<AActor*> Props;
+    for (TActorIterator<AActor> It(World); It; ++It)
+    {
+        AActor* A = *It;
+        if (A == nullptr)
+        {
+            continue;
+        }
+        if (A->ActorHasTag(TEXT("SkillPreviewCaster")))
+        {
+            A->SetActorLocation(FVector(0.f, 0.f, 50.f));
+        }
+        else if (A->ActorHasTag(TEXT("SkillPreviewTarget")))
+        {
+            A->SetActorLocation(FVector(1000.f, 0.f, 50.f));
+        }
+        else if (A->ActorHasTag(TEXT("SkillPreviewProp")))
+        {
+            Props.Add(A);
+        }
+    }
+
+    // 데모 큐브를 타격 기준 링 위치로 복원(개수 무관, 큐브는 동일하므로 순서 무관)
+    const FVector RingCenter(1000.f, 0.f, 50.f);
+    const float RingRadius = 300.f;
+    const int32 Num = Props.Num();
+    for (int32 i = 0; i < Num; ++i)
+    {
+        const float Ang = (2.f * PI) * i / FMath::Max(1, Num);
+        const FVector P = RingCenter + FVector(FMath::Cos(Ang) * RingRadius, FMath::Sin(Ang) * RingRadius, 0.f);
+        if (Props[i] != nullptr)
+        {
+            Props[i]->SetActorLocation(P);
+        }
+    }
 }
 
 void UEUW_SkillForge::OnOpenPreviewLevelClicked()

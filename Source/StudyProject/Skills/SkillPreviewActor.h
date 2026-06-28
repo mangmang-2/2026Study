@@ -7,6 +7,7 @@
 class USkillDefinition;
 class UNiagaraComponent;
 class UNiagaraSystem;
+class AStaticMeshActor;
 
 /**
  * 에디터 뷰포트에서 스킬 비주얼을 시퀀스 재생(게임플레이 없이).
@@ -32,6 +33,10 @@ private:
     UNiagaraComponent* SpawnVFX(UNiagaraSystem* System, const FVector& Location, float Scale, bool bAutoDestroy);
     float GroundZ(const FVector& Point) const;
 
+    // 당기기/밀기 데모용 — 타격 주변에 큐브 링을 띄우고 임팩트 때 당김/밀림 애니메이션
+    void SpawnKnockProps();
+    void UpdateKnockProps();
+
     // 이 프리뷰가 스폰한 VFX — 액터 파괴 시 함께 정리
     UPROPERTY()
     TArray<TObjectPtr<UNiagaraComponent>> SpawnedVFX;
@@ -55,4 +60,14 @@ private:
     int32 RainSpawned = 0;
     float RainNextTime = 0.f;
     bool bRainActive = false;
+
+    // 당기기/밀기 데모 큐브
+    UPROPERTY()
+    TArray<TObjectPtr<AStaticMeshActor>> PropCubes;
+    TArray<FVector> PropStart;
+    TArray<FVector> PropTarget;
+    bool bHasKnock = false;
+    bool bPullMode = false;
+    bool bPropsTriggered = false;
+    float PropT0 = 0.f;
 };
