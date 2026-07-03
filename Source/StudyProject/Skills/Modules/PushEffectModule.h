@@ -20,7 +20,7 @@ public:
 
     // 띄우는 상승 속도(0=수평만)
     UPROPERTY(EditAnywhere, Category = "Push")
-    float UpwardBias = 300.f;
+    float UpwardBias = 0.f;
 
     // 시전자 위치 대신 판정 중심(Origin) 기준으로 밀어낼지(지점 폭발의 방사형 넉백)
     UPROPERTY(EditAnywhere, Category = "Push")

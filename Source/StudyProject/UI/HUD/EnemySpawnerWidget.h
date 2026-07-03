@@ -22,11 +22,13 @@ protected:
 private:
     UFUNCTION() void OnSpawnEnemy();
     UFUNCTION() void OnSpawnBoss();
+    UFUNCTION() void OnSpawnDummy();
     UFUNCTION() void OnClear();
 
     APlayerCharacter* GetPlayerChar() const;
 
     UPROPERTY() TObjectPtr<UButton> SpawnEnemyBtn = nullptr;
     UPROPERTY() TObjectPtr<UButton> SpawnBossBtn  = nullptr;
+    UPROPERTY() TObjectPtr<UButton> SpawnDummyBtn = nullptr;
     UPROPERTY() TObjectPtr<UButton> ClearBtn      = nullptr;
 };

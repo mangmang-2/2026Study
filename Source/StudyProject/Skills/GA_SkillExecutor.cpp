@@ -43,7 +43,9 @@ void UGA_SkillExecutor::ActivateAbility(
     {
         if (USkillManagerComponent* Comp = Avatar->FindComponentByClass<USkillManagerComponent>())
         {
-            ActiveSkill = Comp->ConsumePendingActivation(PendingOrigin, PendingDirection);
+            AActor* HomingTarget = nullptr;
+            ActiveSkill = Comp->ConsumePendingActivation(PendingOrigin, PendingDirection, HomingTarget);
+            PendingTarget = HomingTarget;
         }
     }
 
@@ -118,9 +120,16 @@ void UGA_SkillExecutor::Detonate()
             Params.Owner = Avatar;
             Params.Instigator = Avatar;
             Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+            // 호밍 대상: 락온이 있으면 그 대상, 없으면 조준 방향 콘에서 자동 획득
+            AActor* HomingTarget = PendingTarget.Get();
+            if (ActiveSkill->bHoming && HomingTarget == nullptr)
+            {
+                HomingTarget = AcquireHomingTarget(Avatar, PendingDirection);
+            }
+
             if (ASkillProjectile* Proj = World->SpawnActor<ASkillProjectile>(ASkillProjectile::StaticClass(), Muzzle, PendingDirection.Rotation(), Params))
             {
-                Proj->InitProjectile(ActiveSkill, Avatar, GetAbilitySystemComponentFromActorInfo(), PendingDirection);
+                Proj->InitProjectile(ActiveSkill, Avatar, GetAbilitySystemComponentFromActorInfo(), PendingDirection, HomingTarget);
             }
         }
         EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
@@ -438,6 +447,82 @@ bool UGA_SkillExecutor::IsHostileValidTarget(AActor* Candidate, bool bInstigator
 bool UGA_SkillExecutor::IsValidTarget(AActor* Candidate, bool bAvatarIsEnemy) const
 {
     return IsHostileValidTarget(Candidate, bAvatarIsEnemy);
+}
+
+AActor* UGA_SkillExecutor::AcquireHomingTarget(ACharacter* Avatar, const FVector& Direction) const
+{
+    UWorld* World = (Avatar != nullptr) ? Avatar->GetWorld() : nullptr;
+    if (Avatar == nullptr || World == nullptr || ActiveSkill == nullptr)
+    {
+        return nullptr;
+    }
+
+    const FVector Dir = Direction.GetSafeNormal2D();
+    if (Dir.IsNearlyZero())
+    {
+        return nullptr;
+    }
+
+    const FVector Start = Avatar->GetActorLocation();
+    // HomingMaxAngle = 콘 전체각 → 조준 방향 기준 반각(±) 안의 적만 대상
+    const float CosMax = FMath::Cos(FMath::DegreesToRadians(FMath::Clamp(ActiveSkill->HomingMaxAngle, 0.f, 180.f) * 0.5f));
+    const bool bAvatarIsEnemy = Avatar->IsA(AEnemyCharacter::StaticClass());
+
+    TArray<TEnumAsByte<EObjectTypeQuery>> ObjectTypes;
+    ObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECC_Pawn));
+    TArray<AActor*> ToIgnore;
+    ToIgnore.Add(Avatar);
+    TArray<AActor*> Overlaps;
+    UKismetSystemLibrary::SphereOverlapActors(World, Start, FMath::Max(200.f, ActiveSkill->Range),
+        ObjectTypes, AActor::StaticClass(), ToIgnore, Overlaps);
+
+    const float Speed = FMath::Max(1.f, ActiveSkill->ProjectileSpeed);
+    const float Accel = FMath::Max(0.f, ActiveSkill->HomingAcceleration);
+
+    // 조준 콘 안에서 "실제로 따라잡을 수 있는" 적 중 가장 정렬된(각이 작은) 적만 고른다.
+    // 못 따라잡을 측면 거리면 획득하지 않아 투사체가 그냥 직선으로 간다(어중간한 빗맞음 방지).
+    AActor* Best = nullptr;
+    float BestCos = CosMax;
+    for (AActor* Cand : Overlaps)
+    {
+        if (IsHostileValidTarget(Cand, bAvatarIsEnemy) == false)
+        {
+            continue;
+        }
+
+        FVector To = Cand->GetActorLocation() - Start;
+        To.Z = 0.f;
+
+        const float Along = FVector::DotProduct(To, Dir);
+        if (Along <= 0.f)
+        {
+            continue;   // 등 뒤
+        }
+
+        const float Dist = To.Size();
+        const float Cos = Along / FMath::Max(1.f, Dist);
+        if (Cos < CosMax)
+        {
+            continue;   // 콘 밖
+        }
+
+        // 비행 시간 동안 호밍이 보정할 수 있는 측면 거리(대략) 안쪽만 획득
+        const float Perp = FMath::Sqrt(FMath::Max(0.f, Dist * Dist - Along * Along));
+        const float TimeToReach = Along / Speed;
+        const float MaxLateral = 0.5f * Accel * TimeToReach * TimeToReach;
+        if (Perp > MaxLateral)
+        {
+            continue;   // 호밍으로도 못 맞춤 → 획득 안 함(직선 비행)
+        }
+
+        if (Cos >= BestCos)
+        {
+            BestCos = Cos;
+            Best = Cand;
+        }
+    }
+
+    return Best;
 }
 
 void UGA_SkillExecutor::ExecuteSkillBurstAt(UWorld* World, USkillDefinition* Skill,

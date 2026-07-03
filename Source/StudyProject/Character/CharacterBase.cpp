@@ -183,7 +183,10 @@ void ACharacterBase::Multicast_SpawnSkillVFX_Implementation(UNiagaraSystem* VFX,
         return;
     }
 
-    const FRotator Rot = Direction.IsNearlyZero() ? FRotator::ZeroRotator : Direction.Rotation();
+    // 스킬 VFX는 똑바로 세운다(수평 방향만 yaw로). 레인은 Direction=DownVector라
+    // Direction.Rotation()이 Pitch -90을 줘서 세로 번개가 옆으로 눕던 문제를 막는다.
+    // 에디터 프리뷰(SkillPreviewActor)도 ZeroRotator라 이로써 PIE와 방향이 일치한다.
+    const FRotator Rot = Direction.IsNearlyZero() ? FRotator::ZeroRotator : FRotator(0.f, Direction.Rotation().Yaw, 0.f);
     const FVector ScaleVec = FVector(FMath::Max(0.01f, Scale));
     UNiagaraFunctionLibrary::SpawnSystemAtLocation(World, VFX, Location, Rot, ScaleVec);
 }

@@ -98,6 +98,10 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Debug")
     void SpawnTestBoss();
 
+    // AI 없는 더미(가만히 서서 맞는 적). HP/효과는 정상 — 호밍/스킬 테스트용.
+    UFUNCTION(BlueprintCallable, Category = "Debug")
+    void SpawnTestDummy();
+
     UFUNCTION(BlueprintCallable, Category = "Debug")
     void ClearAllEnemies();
 
@@ -366,10 +370,12 @@ private:
     UFUNCTION(Server, Reliable)
     void Server_DebugAddGold(int32 Amount);
 
-    UFUNCTION(Server, Reliable) 
+    UFUNCTION(Server, Reliable)
     void Server_SpawnTestEnemy();
-    UFUNCTION(Server, Reliable) 
+    UFUNCTION(Server, Reliable)
     void Server_SpawnTestBoss();
+    UFUNCTION(Server, Reliable)
+    void Server_SpawnTestDummy();
     UFUNCTION(Server, Reliable)
     void Server_ClearEnemies();
 

@@ -15,6 +15,7 @@ enum class ESkillModuleType : uint8
     Push,
     Stun,
     Slow,
+    Knockup,
 };
 
 // 에디터 전용 — EUW_SkillForge 에서 호출. 스킬 DataAsset 저작/조합 헬퍼.

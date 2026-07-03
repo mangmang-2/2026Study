@@ -64,6 +64,9 @@ private:
     // 낙하체 1개가 떨어질 지면 지점 — RainEnemyBias 확률로 범위 내 적 위치, 아니면 무작위
     FVector PickRainStrikePoint() const;
 
+    // 호밍 대상 자동 획득 — 조준 방향 콘(HomingMaxAngle) 안에서 가장 정렬된 적. 락온 없을 때 사용.
+    AActor* AcquireHomingTarget(class ACharacter* Avatar, const FVector& Direction) const;
+
     // 착탄 VFX 멀티캐스트(범위에 비례해 스케일)
     void SpawnImpactVFX();
 
@@ -89,6 +92,10 @@ private:
 
     FVector PendingOrigin = FVector::ZeroVector;
     FVector PendingDirection = FVector::ForwardVector;
+
+    // 호밍 투사체 대상(락온 시) — 컴포넌트에서 가져옴
+    UPROPERTY()
+    TObjectPtr<AActor> PendingTarget = nullptr;
 
     // Detonate에서 채워 모듈 실행에 공유(지연 타이머 사이 GC 추적)
     UPROPERTY()

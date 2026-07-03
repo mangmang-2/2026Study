@@ -7,6 +7,7 @@
 #include "Modules/PushEffectModule.h"
 #include "Modules/StunEffectModule.h"
 #include "Modules/SlowEffectModule.h"
+#include "Modules/KnockupEffectModule.h"
 #include "AssetToolsModule.h"
 #include "Misc/PackageName.h"
 #include "UObject/Package.h"
@@ -48,6 +49,11 @@ void USkillDefinition::AddStunModule()
 void USkillDefinition::AddSlowModule()
 {
     AppendModule(this, USlowEffectModule::StaticClass());
+}
+
+void USkillDefinition::AddKnockupModule()
+{
+    AppendModule(this, UKnockupEffectModule::StaticClass());
 }
 
 void USkillDefinition::ClearModules()

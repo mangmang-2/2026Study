@@ -110,6 +110,7 @@ void UEUW_SkillForge::NativeConstruct()
         ModuleTypeCombo->AddOption(TEXT("Push"));
         ModuleTypeCombo->AddOption(TEXT("Stun"));
         ModuleTypeCombo->AddOption(TEXT("Slow"));
+        ModuleTypeCombo->AddOption(TEXT("Knockup"));
         ModuleTypeCombo->SetSelectedIndex(0);
     }
 

@@ -31,12 +31,14 @@ TSharedRef<SWidget> UEnemySpawnerWidget::RebuildWidget()
             return B;
         };
 
-        SpawnEnemyBtn = MakeButton(TEXT("SpawnEnemyBtn"), TEXT("T1"), TEXT("적 소환"));
+        SpawnEnemyBtn = MakeButton(TEXT("SpawnEnemyBtn"), TEXT("T1"), TEXT("AI 적 소환"));
         SpawnBossBtn  = MakeButton(TEXT("SpawnBossBtn"),  TEXT("T2"), TEXT("보스 소환"));
+        SpawnDummyBtn = MakeButton(TEXT("SpawnDummyBtn"), TEXT("T4"), TEXT("더미 소환 (AI 없음)"));
         ClearBtn      = MakeButton(TEXT("ClearBtn"),      TEXT("T3"), TEXT("전체 제거"));
 
         SpawnEnemyBtn->OnClicked.AddDynamic(this, &UEnemySpawnerWidget::OnSpawnEnemy);
         SpawnBossBtn->OnClicked.AddDynamic(this, &UEnemySpawnerWidget::OnSpawnBoss);
+        SpawnDummyBtn->OnClicked.AddDynamic(this, &UEnemySpawnerWidget::OnSpawnDummy);
         ClearBtn->OnClicked.AddDynamic(this, &UEnemySpawnerWidget::OnClear);
 
         if (UCanvasPanelSlot* CS = Canvas->AddChildToCanvas(Box))
@@ -64,6 +66,11 @@ void UEnemySpawnerWidget::OnSpawnEnemy()
 void UEnemySpawnerWidget::OnSpawnBoss()
 {
     if (APlayerCharacter* P = GetPlayerChar()) { P->SpawnTestBoss(); }
+}
+
+void UEnemySpawnerWidget::OnSpawnDummy()
+{
+    if (APlayerCharacter* P = GetPlayerChar()) { P->SpawnTestDummy(); }
 }
 
 void UEnemySpawnerWidget::OnClear()

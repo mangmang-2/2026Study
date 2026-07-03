@@ -16,8 +16,47 @@
 #include "Blueprint/UserWidget.h"
 #include "Kismet/GameplayStatics.h"
 #include "Materials/MaterialInterface.h"
+#include "Materials/MaterialInstanceDynamic.h"
 #include "Engine/World.h"
 #include "Net/UnrealNetwork.h"
+
+namespace
+{
+    // 호밍 콘 데칼을 발사 방향으로 잠깐 표시(로컬 코스메틱 피드백). ConeAngleDeg = 콘 전체각.
+    void ShowHomingCone(UWorld* World, APawn* Pawn, const FVector& Dir, float ConeAngleDeg, float Range)
+    {
+        if (World == nullptr || Pawn == nullptr)
+        {
+            return;
+        }
+        FVector Flat = Dir;
+        Flat.Z = 0.f;
+        Flat = Flat.GetSafeNormal();
+        if (Flat.IsNearlyZero())
+        {
+            return;
+        }
+        UMaterialInterface* Base = LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/Skills/Tools/M_HomingCone2.M_HomingCone2"));
+        if (Base == nullptr)
+        {
+            return;
+        }
+        const float Reach = FMath::Max(100.f, Range);
+        // pitch -90 짐벌락 회피 — 투영축=아래(-Z), 콘 forward=조준(Flat)을 기저로 직접 구성.
+        // 콘은 ConeDir 각도를 그대로 향하므로 조준 Flat을 그대로 넣는다(반전 불필요).
+        const FRotator Rot = FRotationMatrix::MakeFromXY(FVector(0.f, 0.f, -1.f), Flat).Rotator();
+        UDecalComponent* Decal = UGameplayStatics::SpawnDecalAtLocation(World, Base, FVector(160.f, Reach, Reach), Pawn->GetActorLocation(), Rot, 0.8f);
+        if (Decal != nullptr)
+        {
+            if (UMaterialInstanceDynamic* MID = Decal->CreateDynamicMaterialInstance())
+            {
+                // 머티리얼 HalfAngleDeg = 반각이라 전체각의 절반을 넣는다.
+                MID->SetScalarParameterValue(TEXT("HalfAngleDeg"), ConeAngleDeg * 0.5f);
+            }
+            Decal->SetFadeOut(0.45f, 0.35f, false);
+        }
+    }
+}
 
 USkillManagerComponent::USkillManagerComponent()
 {
@@ -163,9 +202,18 @@ void USkillManagerComponent::FireSlot(int32 SlotIndex)
         CastEndTime = CastStartTime + Skill->CastTime;
     }
 
+    // 호밍 투사체면 발사 순간 조준 방향으로 호밍 콘을 잠깐 표시(로컬 피드백)
+    if (Skill->bHoming && Skill->DeliveryType == ESkillDeliveryType::Projectile)
+    {
+        ShowHomingCone(GetWorld(), Cast<APawn>(GetOwner()), Direction, Skill->HomingMaxAngle, Skill->Range);
+    }
+
+    // 락온 중이면 호밍 대상도 함께 서버로 보낸다(투사체 추적용).
+    AActor* HomingTarget = ResolveHomingTarget();
+
     // 쿨다운은 서버가 발동 성공 시 시작한다(Server_ActivateSlot). 여기서 미리 켜면
     // 스탠드얼론/리슨서버에선 같은 인스턴스라 서버 쿨다운 체크가 자기 자신을 막아버림.
-    Server_ActivateSlot(SlotIndex, Origin, Direction);
+    Server_ActivateSlot(SlotIndex, Origin, Direction, HomingTarget);
 }
 
 void USkillManagerComponent::BeginTargeting(int32 SlotIndex)
@@ -250,21 +298,26 @@ void USkillManagerComponent::TickComponent(float DeltaTime, ELevelTick TickType,
         }
     }
 
-    // 프리뷰 데칼 생성/갱신(로컬 코스메틱)
+    // 프리뷰 데칼 생성/갱신(로컬 코스메틱) — 항상 원형 링 데칼 사용
+    const FVector DecalExtent(128.f, FMath::Max(64.f, Skill->Radius * 1.1f), FMath::Max(64.f, Skill->Radius * 1.1f));
     if (PreviewDecal == nullptr)
     {
-        UMaterialInterface* Mat = Skill->RangeDecalMaterial != nullptr ? Skill->RangeDecalMaterial : DefaultRangeDecalMaterial;
-        PreviewDecal = UGameplayStatics::SpawnDecalAtLocation(GetWorld(), Mat, FVector(Skill->Radius), Point, FRotator(-90.f, 0.f, 0.f));
+        UMaterialInterface* Mat = LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/Skills/Tools/M_SkillRangeDecal.M_SkillRangeDecal"));
+        if (Mat == nullptr)
+        {
+            Mat = DefaultRangeDecalMaterial;
+        }
+        PreviewDecal = UGameplayStatics::SpawnDecalAtLocation(GetWorld(), Mat, DecalExtent, Point, FRotator(-90.f, 0.f, 0.f));
     }
     if (PreviewDecal != nullptr)
     {
         PreviewDecal->SetWorldLocation(Point);
-        PreviewDecal->DecalSize = FVector(FMath::Max(64.f, Skill->Radius), Skill->Radius, Skill->Radius);
+        PreviewDecal->DecalSize = DecalExtent;
         PreviewDecal->MarkRenderStateDirty();
     }
 }
 
-void USkillManagerComponent::Server_ActivateSlot_Implementation(int32 SlotIndex, FVector Origin, FVector Direction)
+void USkillManagerComponent::Server_ActivateSlot_Implementation(int32 SlotIndex, FVector Origin, FVector Direction, AActor* TargetActor)
 {
     if (EquippedSkills.IsValidIndex(SlotIndex) == false)
     {
@@ -293,6 +346,7 @@ void USkillManagerComponent::Server_ActivateSlot_Implementation(int32 SlotIndex,
     PendingSkill = Skill;
     PendingOrigin = Origin;
     PendingDirection = Direction;
+    PendingTarget = TargetActor;
 
     if (ASC->TryActivateAbility(ExecutorHandle))
     {
@@ -309,6 +363,7 @@ void USkillManagerComponent::Server_ActivateSlot_Implementation(int32 SlotIndex,
     else
     {
         PendingSkill = nullptr;
+        PendingTarget = nullptr;
     }
 }
 
@@ -318,13 +373,15 @@ void USkillManagerComponent::Client_StartCooldown_Implementation(int32 SlotIndex
     StartCooldown(SlotIndex, Duration);
 }
 
-USkillDefinition* USkillManagerComponent::ConsumePendingActivation(FVector& OutOrigin, FVector& OutDirection)
+USkillDefinition* USkillManagerComponent::ConsumePendingActivation(FVector& OutOrigin, FVector& OutDirection, AActor*& OutTarget)
 {
     OutOrigin = PendingOrigin;
     OutDirection = PendingDirection;
+    OutTarget = PendingTarget;
 
     USkillDefinition* Skill = PendingSkill;
     PendingSkill = nullptr;
+    PendingTarget = nullptr;
     return Skill;
 }
 
@@ -531,6 +588,22 @@ bool USkillManagerComponent::ResolveTargeting(USkillDefinition* Skill, FVector& 
     }
 }
 
+AActor* USkillManagerComponent::ResolveHomingTarget() const
+{
+    APawn* Pawn = Cast<APawn>(GetOwner());
+    if (APlayerCharacter* Player = Cast<APlayerCharacter>(Pawn))
+    {
+        if (ULockOnComponent* Lock = Player->GetLockOnComponent())
+        {
+            if (Lock->IsLockedOn())
+            {
+                return Lock->GetCurrentTarget();
+            }
+        }
+    }
+    return nullptr;
+}
+
 bool USkillManagerComponent::GetGroundAimPoint(FVector& OutPoint) const
 {
     APawn* Pawn = Cast<APawn>(GetOwner());
@@ -540,7 +613,7 @@ bool USkillManagerComponent::GetGroundAimPoint(FVector& OutPoint) const
         return false;
     }
 
-    // 커서(없으면 카메라) 광선 — 캐릭터/지오메트리에 안 걸리도록 평면 교차로 계산
+    // 커서(없으면 카메라) 광선
     FVector RayOrigin = FVector::ZeroVector;
     FVector RayDir = FVector::ForwardVector;
     bool bGotRay = false;
@@ -555,12 +628,34 @@ bool USkillManagerComponent::GetGroundAimPoint(FVector& OutPoint) const
         RayDir = PC->PlayerCameraManager->GetCameraRotation().Vector();
         bGotRay = true;
     }
-    if (bGotRay == false || FMath::Abs(RayDir.Z) < KINDA_SMALL_NUMBER)
+    if (bGotRay == false)
     {
         return false;
     }
 
-    // 캐스터 발밑 높이의 수평 평면과 광선의 교차점(폰/지오메트리 무시)
+    FCollisionQueryParams Params;
+    Params.AddIgnoredActor(Pawn);
+
+    // 커서 광선을 지오메트리(WorldStatic/Dynamic)에만 트레이스 → 카메라 각도와 무관하게 커서 지점,
+    // 그리고 NPC/적(폰)은 무시한다. (채널 트레이스 ECC_WorldStatic은 폰 캡슐도 그 채널을 Block해서
+    // 적/NPC에 커서가 걸렸음 → 오브젝트 타입 쿼리로 변경해 지면만 맞힌다.)
+    FCollisionObjectQueryParams ObjParams;
+    ObjParams.AddObjectTypesToQuery(ECC_WorldStatic);
+    ObjParams.AddObjectTypesToQuery(ECC_WorldDynamic);
+
+    FHitResult GroundHit;
+    const FVector TraceEnd = RayOrigin + RayDir * 100000.f;
+    if (GetWorld()->LineTraceSingleByObjectType(GroundHit, RayOrigin, TraceEnd, ObjParams, Params))
+    {
+        OutPoint = GroundHit.ImpactPoint;
+        return true;
+    }
+
+    // 지면을 못 맞히면(하늘 등) 캐스터 발밑 높이 평면과 교차로 폴백
+    if (FMath::Abs(RayDir.Z) < KINDA_SMALL_NUMBER)
+    {
+        return false;
+    }
     const float PlaneZ = Pawn->GetActorLocation().Z;
     const float T = (PlaneZ - RayOrigin.Z) / RayDir.Z;
     if (T <= 0.f)
@@ -568,17 +663,5 @@ bool USkillManagerComponent::GetGroundAimPoint(FVector& OutPoint) const
         return false;
     }
     OutPoint = RayOrigin + RayDir * T;
-
-    // 평면 지점에서 아래로 살짝 트레이스해 실제 지면 높이에 스냅(폰 제외)
-    FCollisionQueryParams Params;
-    Params.AddIgnoredActor(Pawn);
-    FHitResult GroundHit;
-    const FVector Up = OutPoint + FVector(0.f, 0.f, 300.f);
-    const FVector Down = OutPoint - FVector(0.f, 0.f, 1000.f);
-    if (GetWorld()->LineTraceSingleByChannel(GroundHit, Up, Down, ECC_WorldStatic, Params))
-    {
-        OutPoint.Z = GroundHit.ImpactPoint.Z;
-    }
-
     return true;
 }

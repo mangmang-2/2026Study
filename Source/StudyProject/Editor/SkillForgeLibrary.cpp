@@ -12,6 +12,7 @@
 #include "Skills/Modules/PushEffectModule.h"
 #include "Skills/Modules/StunEffectModule.h"
 #include "Skills/Modules/SlowEffectModule.h"
+#include "Skills/Modules/KnockupEffectModule.h"
 #include "GAS/GE_Damage.h"
 #include "GameplayEffect.h"
 #include "GameplayTagContainer.h"
@@ -153,6 +154,9 @@ UEffectModule* USkillForgeLibrary::AddModule(USkillDefinition* Skill, ESkillModu
         break;
     case ESkillModuleType::Slow:
         ModuleClass = USlowEffectModule::StaticClass();
+        break;
+    case ESkillModuleType::Knockup:
+        ModuleClass = UKnockupEffectModule::StaticClass();
         break;
     default:
         return nullptr;
@@ -453,6 +457,10 @@ FString USkillForgeLibrary::GetGASInfo(USkillDefinition* Skill)
         else if (Cast<UPushEffectModule>(M) != nullptr)
         {
             S += FString::Printf(TEXT("   [%d] 밀치기  ·  물리 힘(LaunchCharacter), GE 없음\n"), i);
+        }
+        else if (Cast<UKnockupEffectModule>(M) != nullptr)
+        {
+            S += FString::Printf(TEXT("   [%d] 띄우기  ·  물리 힘(LaunchCharacter, 수직), GE 없음\n"), i);
         }
         else
         {

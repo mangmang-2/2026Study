@@ -84,7 +84,8 @@ public:
     float GetWorldCastProgress() const;
 
     // GA_SkillExecutor가 활성화 시 호출 — 서버가 쌓아둔 스킬·타겟을 가져가며 비운다.
-    USkillDefinition* ConsumePendingActivation(FVector& OutOrigin, FVector& OutDirection);
+    // OutTarget = 호밍 대상(락온 시), 없으면 nullptr.
+    USkillDefinition* ConsumePendingActivation(FVector& OutOrigin, FVector& OutDirection, AActor*& OutTarget);
 
     UPROPERTY(BlueprintAssignable, Category = "Skills")
     FOnSkillSlotsChanged OnSlotsChanged;
@@ -109,7 +110,7 @@ private:
     void OnRep_EquippedSkills();
 
     UFUNCTION(Server, Reliable)
-    void Server_ActivateSlot(int32 SlotIndex, FVector Origin, FVector Direction);
+    void Server_ActivateSlot(int32 SlotIndex, FVector Origin, FVector Direction, AActor* TargetActor);
 
     UFUNCTION(Server, Reliable)
     void Server_AssignSkill(int32 PoolIndex, int32 SlotIndex);
@@ -131,6 +132,9 @@ private:
 
     // 소유 클라에서 스킬 종류별 타겟(Origin/Direction) 해석. 실패 시 false.
     bool ResolveTargeting(USkillDefinition* Skill, FVector& OutOrigin, FVector& OutDirection) const;
+
+    // 락온 중이면 락온 대상 반환(호밍 투사체용), 아니면 nullptr.
+    AActor* ResolveHomingTarget() const;
 
     // 마우스 커서(없으면 카메라 정면)가 가리키는 지면 지점. 프리뷰/조준 공용.
     bool GetGroundAimPoint(FVector& OutPoint) const;
@@ -156,6 +160,10 @@ private:
     TObjectPtr<USkillDefinition> PendingSkill = nullptr;
     FVector PendingOrigin = FVector::ZeroVector;
     FVector PendingDirection = FVector::ForwardVector;
+
+    // 호밍 투사체 대상(락온 시). GA가 ConsumePendingActivation으로 가져감.
+    UPROPERTY()
+    TObjectPtr<AActor> PendingTarget = nullptr;
 
     // 시전바용 로컬 캐스트 상태(소유 클라 예측)
     UPROPERTY()

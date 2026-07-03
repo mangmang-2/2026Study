@@ -20,7 +20,7 @@ public:
 
     // 살짝 띄우는 상승 속도(0=수평만)
     UPROPERTY(EditAnywhere, Category = "Pull")
-    float UpwardBias = 200.f;
+    float UpwardBias = 0.f;
 
     // 시전자 위치 대신 판정 중심(Origin)으로 끌어당길지
     UPROPERTY(EditAnywhere, Category = "Pull")

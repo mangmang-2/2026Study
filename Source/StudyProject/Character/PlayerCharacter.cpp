@@ -2,6 +2,7 @@
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "GameFramework/Controller.h"
 #include "Components/CapsuleComponent.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
@@ -1170,6 +1171,31 @@ void APlayerCharacter::SpawnTestBoss()
     GetWorld()->SpawnActor<AActor>(BossSpawnClass, Loc, Rot, Params);
 }
 void APlayerCharacter::Server_SpawnTestBoss_Implementation() { SpawnTestBoss(); }
+
+void APlayerCharacter::SpawnTestDummy()
+{
+    if (!HasAuthority()) { Server_SpawnTestDummy(); return; }
+    if (TestEnemyClass == nullptr || GetWorld() == nullptr) { return; }
+    const FVector Loc = GetActorLocation() + GetActorForwardVector() * 450.f + FVector(0.f, 0.f, 60.f);
+    const FRotator Rot = GetActorRotation() + FRotator(0.f, 180.f, 0.f);
+    FActorSpawnParameters Params;
+    Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+    AActor* Spawned = GetWorld()->SpawnActor<AActor>(TestEnemyClass, Loc, Rot, Params);
+
+    // AI 끄기 — 컨트롤러 제거(자동 언포제스). ASC/HP는 EnemyCharacter::BeginPlay서 init돼 데미지는 받음.
+    if (ACharacter* C = Cast<ACharacter>(Spawned))
+    {
+        if (AController* Ctrl = C->GetController())
+        {
+            Ctrl->Destroy();
+        }
+        if (C->GetCharacterMovement() != nullptr)
+        {
+            C->GetCharacterMovement()->StopMovementImmediately();
+        }
+    }
+}
+void APlayerCharacter::Server_SpawnTestDummy_Implementation() { SpawnTestDummy(); }
 
 void APlayerCharacter::ClearAllEnemies()
 {

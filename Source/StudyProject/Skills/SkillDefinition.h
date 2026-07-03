@@ -122,6 +122,18 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Projectile")
     float ProjectileRadius = 16.f;
 
+    // 호밍 — 투사체가 적을 추적해 휜다. 락온 중이면 락온 대상, 아니면 조준 방향의 가장 가까운 적을 자동 획득.
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Projectile")
+    bool bHoming = false;
+
+    // 락온 없을 때 자동 획득 콘 반각(도) — 조준 방향 이 각도 안의 적만 따라간다.
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Projectile", meta = (EditCondition = "bHoming", ClampMin = "0", ClampMax = "180"))
+    float HomingMaxAngle = 35.f;
+
+    // 호밍 가속도 — 클수록 빠르게 휘어 따라간다.
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Projectile", meta = (EditCondition = "bHoming", ClampMin = "0"))
+    float HomingAcceleration = 8000.f;
+
     // 시전 모션(없으면 제자리)
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "VFX")
     TObjectPtr<UAnimMontage> CastMontage;
@@ -146,6 +158,9 @@ public:
 
     UFUNCTION(CallInEditor, Category = "Skill Forge|Add Module")
     void AddSlowModule();
+
+    UFUNCTION(CallInEditor, Category = "Skill Forge|Add Module")
+    void AddKnockupModule();
 
     UFUNCTION(CallInEditor, Category = "Skill Forge")
     void ClearModules();

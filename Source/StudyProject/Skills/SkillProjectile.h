@@ -22,7 +22,9 @@ class STUDYPROJECT_API ASkillProjectile : public AActor
 public:
     ASkillProjectile();
 
-    void InitProjectile(USkillDefinition* InSkill, AActor* InInstigator, UAbilitySystemComponent* InASC, const FVector& Dir);
+    void InitProjectile(USkillDefinition* InSkill, AActor* InInstigator, UAbilitySystemComponent* InASC, const FVector& Dir, AActor* InHomingTarget = nullptr);
+
+    virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 protected:
     virtual void BeginPlay() override;
@@ -30,6 +32,13 @@ protected:
     UFUNCTION()
     void OnSphereHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimitiveComponent* OtherComp,
         FVector NormalImpulse, const FHitResult& Hit);
+
+    // Skill이 클라에 복제되면 트레일 VFX를 붙인다(서버는 InitProjectile에서 직접)
+    UFUNCTION()
+    void OnRep_Skill();
+
+    // 비행 트레일 세팅 — 서버/클라 공용
+    void SetupFlightVFX();
 
 private:
     UPROPERTY(VisibleAnywhere)
@@ -41,7 +50,7 @@ private:
     UPROPERTY(VisibleAnywhere)
     TObjectPtr<UNiagaraComponent> FlightVFX;
 
-    UPROPERTY()
+    UPROPERTY(ReplicatedUsing = OnRep_Skill)
     TObjectPtr<USkillDefinition> Skill = nullptr;
 
     TWeakObjectPtr<AActor> InstigatorActor;
